@@ -39,6 +39,20 @@ OUTER_CONNECTIONS = {
     "龟兹": "朔方",    # 西域↔塞北（西-北）
 }
 
+# 中原内部环线：四座关隘城市连成圈，洛阳/开封居中
+INNER_RING = [
+    ("长安", "燕京"),
+    ("燕京", "应天府"),
+    ("应天府", "襄阳"),
+    ("襄阳", "长安"),
+]
+
+# 洛阳、开封嵌入环内
+INNER_CITY_CONNECTIONS = {
+    "洛阳": ["长安", "应天府"],
+    "开封": ["应天府", "襄阳"],
+}
+
 # 合并所有连接（双向）
 def _build_connections():
     conn = {}
@@ -48,6 +62,13 @@ def _build_connections():
     for a, b in OUTER_CONNECTIONS.items():
         conn.setdefault(a, []).append(b)
         conn.setdefault(b, []).append(a)
+    for a, b in INNER_RING:
+        conn.setdefault(a, []).append(b)
+        conn.setdefault(b, []).append(a)
+    for city, neighbors in INNER_CITY_CONNECTIONS.items():
+        for n in neighbors:
+            conn.setdefault(city, []).append(n)
+            conn.setdefault(n, []).append(city)
     return conn
 
 CITY_CONNECTIONS = _build_connections()
