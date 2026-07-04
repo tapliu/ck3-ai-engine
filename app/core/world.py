@@ -5,7 +5,7 @@ from app.models.character import Character
 
 
 def _load_excel():
-    path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "xczyw_xs.xlsx")
+    path = r"E:\game\xczyw_xs.xlsx"
     if not os.path.isfile(path):
         return []
 
