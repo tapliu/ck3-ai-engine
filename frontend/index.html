@@ -474,17 +474,20 @@ function closeTreasure() {
 
 // 自动托管
 let autoTimer = null;
+let autoTicked = false;
 
 function toggleAuto() {
   const btn = document.getElementById('autoBtn');
   if (autoTimer) {
     autoTimer = null;
+    autoTicked = false;
     btn.textContent = '托管';
     btn.style.background = '#2d6a4f';
   } else {
     btn.textContent = '托管中';
     btn.style.background = '#e94560';
     autoTimer = 1;
+    autoTicked = false;
     doAutoTick();
   }
 }
@@ -509,8 +512,10 @@ async function doAutoTick() {
   }
   const tickBtn = document.getElementById('tickBtn');
   if (tickBtn.disabled) { setTimeout(doAutoTick, 500); return; }
+  if (autoTicked) { toggleAuto(); return; }
+  autoTicked = true;
   await tick();
-  if (autoTimer) toggleAuto();
+  setTimeout(doAutoTick, 300);
 }
 
 async function autoChooseEvent() {
