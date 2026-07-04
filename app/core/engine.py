@@ -37,7 +37,12 @@ class Engine:
             "desc": f"第{self.round}回合结束"
         })
 
+        self.world.generate_tasks()
+        self.world.combat_event()
+        self.world.cooperation_event()
         self.world.do_tick_events()
+        self.world.check_decay()
+        self.world.maybe_start_tournament()
 
     def execute(self, npc, d):
 

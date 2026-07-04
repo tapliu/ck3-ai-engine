@@ -77,3 +77,45 @@ def decide_event(body: DecideEvent):
     if method:
         method(body.target)
     return {"ok": True}
+
+
+@app.get("/api/tasks/pending")
+def pending_tasks():
+    return {"tasks": world.pending_task_data()}
+
+
+class ExecuteTask(BaseModel):
+    task_id: int
+    use_scheme: bool = False
+    mode: str = "normal"
+
+
+@app.post("/api/tasks/execute")
+def execute_task(body: ExecuteTask):
+    m = body.mode if body.mode != "normal" else ("scheme" if body.use_scheme else "normal")
+    return world.execute_task(body.task_id, m)
+
+
+# ---- 不进则退 ----
+
+@app.get("/api/decay/pending")
+def decay_pending():
+    if world.pending_decay:
+        return world.pending_decay
+    return {"decay": None}
+
+
+class DecayChoice(BaseModel):
+    field: str
+
+
+@app.post("/api/decay/execute")
+def execute_decay(body: DecayChoice):
+    return world.execute_decay(body.field)
+
+
+# ---- 天下第一武道会 ----
+
+@app.get("/api/tournament")
+def get_tournament():
+    return world.tournament or {"active": False, "groups": [], "knockout": [], "champion": None}

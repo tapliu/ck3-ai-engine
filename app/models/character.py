@@ -26,6 +26,8 @@ class Character:
         self.master = None
         self.sworn_brothers = []
         self.treasures = []
+        self.xia_yi = 0
+        self.title = ""
 
         self.memory = []
 
@@ -75,5 +77,7 @@ class Character:
             "master": self.master,
             "sworn_brothers": self.sworn_brothers,
             "treasures": self.treasures,
+            "xia_yi": self.xia_yi,
+            "title": self.title,
             "memory": self.memory[-5:],
         }

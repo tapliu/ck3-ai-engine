@@ -50,6 +50,48 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .event-round { color:#e94560; font-weight:bold; margin-right:0.4rem; }
 .event-treasure { color:#f0a0b0; }
 .event-wuxia { color:#80c0e0; }
+.event-combat { color:#ff6b35; }
+.event-cooperation { color:#4ecdc4; }
+.event-task_success { color:#4caf50; }
+.event-task_fail { color:#f44336; }
+.event-decay { color:#ff9800; }
+.event-tournament { color:#e040fb; }
+.xia-yi { color:#ffd700; font-size:0.85rem; }
+.tournament-group { background:#16213e; border:1px solid #533483; border-radius:8px; padding:0.8rem; margin-bottom:0.8rem; }
+.tournament-group h3 { color:#e040fb; font-size:0.95rem; margin-bottom:0.3rem; }
+.tournament-match { font-size:0.8rem; padding:0.15rem 0; color:#a0a0c0; }
+.tournament-standings { font-size:0.8rem; color:#888; margin-top:0.2rem; }
+.tournament-ko { background:#1a1a3e; border:1px solid #e040fb; border-radius:8px; padding:0.8rem; margin-bottom:0.5rem; }
+.tournament-ko h3 { color:#e040fb; font-size:0.95rem; }
+.tournament-champion { text-align:center; padding:1rem; background:linear-gradient(135deg,#3a1a2e,#533483); border:2px solid #ffd700; border-radius:12px; margin-top:1rem; }
+.tournament-champion .name { font-size:1.3rem; color:#ffd700; font-weight:bold; }
+.decay-card { background:#16213e; border:2px solid #ff9800; border-radius:8px; padding:1rem; cursor:pointer; text-align:center; transition:all 0.2s; }
+.decay-card:hover { border-color:#e94560; transform:translateY(-4px); }
+.decay-card .label { font-size:1.1rem; font-weight:bold; color:#ff9800; }
+.decay-card .value { font-size:1.5rem; color:#eee; margin:0.3rem 0; }
+.decay-card .note { font-size:0.8rem; color:#888; }
+
+.task-card { background:#16213e; border:2px solid #0f3460; border-radius:8px; padding:1rem; margin-bottom:1rem; }
+.task-card .task-name { font-size:1.1rem; font-weight:bold; color:#e94560; }
+.task-card .task-desc { font-size:0.85rem; color:#a0a0c0; margin:0.3rem 0; }
+.task-card .task-chance { font-size:0.85rem; color:#888; margin:0.3rem 0; }
+.task-btns { display:flex; gap:0.5rem; margin-top:0.5rem; }
+.task-btns button { flex:1; padding:0.4rem 0; font-size:0.85rem; }
+.task-btn-scheme { background:#533483; }
+.task-btn-scheme:hover { background:#6b4099; }
+.task-btn-focus { background:#2d6a4f; }
+.task-btn-focus:hover { background:#40916c; }
+.task-result { position:fixed; top:1rem; left:50%; transform:translateX(-50%); padding:0.8rem 1.5rem; border-radius:8px; z-index:200; font-size:0.95rem; text-align:center; display:none; max-width:500px; }
+.task-result-ok { background:#1b4332; border:1px solid #4caf50; color:#a5d6a7; }
+.task-result-fail { background:#3e1a1a; border:1px solid #f44336; color:#ef9a9a; }
+
+.treasure-detail { max-width:400px; }
+.treasure-detail .td-name { font-size:1.3rem; color:#e94560; font-weight:bold; }
+.treasure-detail .td-type { font-size:0.85rem; color:#888; margin-bottom:0.5rem; }
+.treasure-detail .td-desc { font-size:0.9rem; color:#a0a0c0; margin-bottom:0.8rem; }
+.treasure-detail .td-bonus { display:grid; grid-template-columns:1fr 1fr; gap:0.3rem; }
+.treasure-detail .td-bonus .tb-item { background:#0f3460; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.85rem; text-align:center; }
+.treasure-detail .td-bonus .tb-item .tb-val { font-weight:bold; color:#e94560; }
 
 /* overlay */
 .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:100; }
@@ -72,7 +114,8 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <div class="header">
   <div class="round" id="roundDisplay">回合: 0</div>
   <div class="controls">
-    <button id="tickBtn" onclick="tick()" disabled>Tick</button>
+    <button id="tickBtn" onclick="tick()" disabled>推进至下一回合</button>
+    <button id="tournamentBtn" onclick="showTournament()" style="display:none;background:#533483;">天下第一武道会</button>
     <button onclick="fetchWorld()">刷新</button>
   </div>
 </div>
@@ -80,7 +123,21 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <div id="playerBanner" style="display:none;" class="player-banner"></div>
 
 <div class="layout">
-  <div id="world" class="grid"></div>
+  <div>
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <span style="color:#888;font-size:0.85rem;">排序:</span>
+      <select id="sortSelect" onchange="fetchWorld()" style="background:#16213e;color:#eee;border:1px solid #0f3460;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.85rem;">
+        <option value="">默认</option>
+        <option value="rel">好感</option>
+        <option value="l">机敏</option>
+        <option value="w">武力</option>
+        <option value="i">魅力</option>
+        <option value="p">智谋</option>
+        <option value="xia_yi">侠义值</option>
+      </select>
+    </div>
+    <div id="world" class="grid"></div>
+  </div>
   <div class="sidebar">
     <div class="events" id="events">
       <h2>江湖日志</h2>
@@ -107,6 +164,44 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
   </div>
 </div>
 
+<!-- 任务弹窗 -->
+<div class="overlay" id="taskOverlay">
+  <div class="modal">
+    <h2>江湖任务</h2>
+    <div class="intro">每回合可执行一个任务</div>
+    <div id="taskList"></div>
+    <div style="text-align:center;margin-top:1rem;"><button onclick="skipTasks()">跳过任务</button></div>
+  </div>
+</div>
+
+<div id="taskResultBanner" class="task-result"></div>
+
+<!-- 不进则退弹窗 -->
+<div class="overlay" id="decayOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h2>不进则退</h2>
+    <div class="intro">每10回合需选择一项属性降低10%</div>
+    <div class="pick-grid" id="decayGrid" style="grid-template-columns:1fr 1fr;"></div>
+  </div>
+</div>
+
+<!-- 天下第一武道会弹窗 -->
+<div class="overlay" id="tournamentOverlay">
+  <div class="modal" style="max-width:600px;">
+    <h2>🏆 天下第一武道会</h2>
+    <div id="tournamentContent"></div>
+    <div style="text-align:center;margin-top:1.2rem;"><button onclick="closeTournament()">关闭</button></div>
+  </div>
+</div>
+
+<!-- 宝物详情弹窗 -->
+<div class="overlay" id="treasureOverlay">
+  <div class="modal" style="max-width:420px;">
+    <div class="treasure-detail" id="treasureDetail"></div>
+    <div style="text-align:center;margin-top:1.2rem;"><button onclick="closeTreasure()">关闭</button></div>
+  </div>
+</div>
+
 <script>
 async function fetchWorld() {
   try {
@@ -122,7 +217,12 @@ async function tick() {
     await fetch('/tick', {method:'POST'});
     await fetchWorld();
     await fetchEvents();
-    await checkPendingEvents();
+    await checkTournament();
+    const hasEvent = await checkPendingEvents();
+    if (!hasEvent) {
+      const hasDecay = await checkDecay();
+      if (!hasDecay) await checkPendingTasks();
+    }
   } catch(e) { console.error(e); }
   btn.disabled = false;
 }
@@ -132,8 +232,9 @@ async function fetchEvents() {
     const r = await fetch('/api/events');
     const data = await r.json();
     const log = document.getElementById('eventLog');
+    const TYPE_CLASS = {'treasure':'event-treasure','wuxia':'event-wuxia','combat':'event-combat','cooperation':'event-cooperation','task_success':'event-task_success','task_fail':'event-task_fail','decay':'event-decay','tournament':'event-tournament'};
     log.innerHTML = data.map(e => {
-      const cls = e.type==='treasure'?'event-treasure':e.type==='wuxia'?'event-wuxia':'';
+      const cls = TYPE_CLASS[e.type]||'';
       return `<div class="event-item ${cls}"><span class="event-round">[${e.round||'?'}]</span>${e.desc}</div>`;
     }).join('') + log.innerHTML;
   } catch(e) { console.error(e); }
@@ -147,7 +248,7 @@ function render(data) {
   const p = data.player;
   if (p) {
     banner.style.display = 'grid';
-    const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
+    const STAT_LABELS = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
     const rels = [];
     if (p.master) rels.push('师:'+p.master);
     if (p.spouse) rels.push('配偶:'+p.spouse);
@@ -159,14 +260,15 @@ function render(data) {
         <div class="sub">${p.gender} · ${p.age}岁 · ${p.region} · 评分 ${p.score}</div>
         <div class="sub" style="margin-top:0.2rem;">${p.desc||''}</div>
         <div class="stats">
-          ${Object.entries(labels).map(([k,v]) => {
+          ${Object.entries(STAT_LABELS).map(([k,v]) => {
             const b = p['base_'+k], bonus = p['bonus_'+k]||0;
-            const display = bonus ? \`\${b+bonus} (\${b}+\${bonus})\` : b;
-            return \`<span><span class="lbl">\${v}</span> <span class="val">\${display}</span></span>\`;
+            const display = bonus ? `${b+bonus} (${b}+${bonus})` : b;
+            return `<span><span class="lbl">${v}</span> <span class="val">${display}</span></span>`;
           }).join('')}
         </div>
+        <div class="xia-yi">侠义值: ${p.xia_yi||0}${p.title ? ' · 称号: '+p.title : ''}</div>
         <div class="rels">${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
-        <div class="rels" style="margin-top:0.3rem;">${(p.treasures||[]).map(t => `<span class="treasure">${t}</span>`).join('')}</div>
+        <div class="rels" style="margin-top:0.3rem;">${(p.treasures||[]).map(t => `<span class="treasure" data-treasure='${JSON.stringify(t).replace(/'/g,"\\'")}' onclick="showTreasure(this)">${t.name}</span>`).join('')}</div>
       </div>`;
   } else {
     banner.style.display = 'none';
@@ -174,8 +276,14 @@ function render(data) {
 
   // NPC网格
   const el = document.getElementById('world');
-  const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
-  el.innerHTML = (data.characters||[]).filter(c => c.name !== (p&&p.name)).map(c => {
+  const sortBy = document.getElementById('sortSelect').value;
+  const STAT_LABELS = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
+  let chars = (data.characters||[]).filter(c => c.name !== (p&&p.name));
+  if (sortBy) {
+    const desc = sortBy === 'rel' ? (c) => -(c.rel||0) : (c) => -(c[sortBy]||0);
+    chars.sort((a,b) => desc(a) - desc(b));
+  }
+  el.innerHTML = chars.map(c => {
     const rels = [];
     if (c.master) rels.push('师:'+c.master);
     if (c.spouse) rels.push('配偶:'+c.spouse);
@@ -185,7 +293,7 @@ function render(data) {
       <div class="name">${c.name}<span class="tag">${c.region}</span></div>
       <div class="desc">${c.desc||''}</div>
       <div class="stats">
-        ${Object.entries(labels).map(([k,v]) => {
+        ${Object.entries(STAT_LABELS).map(([k,v]) => {
           const b = c['base_'+k], bonus = c['bonus_'+k]||0;
           const display = bonus ? `${b+bonus} (${b}+${bonus})` : b;
           return `<div class="stat"><span>${v}</span> <span class="val">${display}</span></div>`;
@@ -193,8 +301,10 @@ function render(data) {
         <div class="stat"><span>年龄</span> <span class="val">${c.age}</span></div>
         <div class="stat"><span>评分</span> <span class="val">${c.score}</span></div>
       </div>
+      <div style="color:#888;font-size:0.8rem;margin:0.3rem 0;">好感: <span style="color:${(c.rel||0)>=0?'#4caf50':'#f44336'};font-weight:bold;">${(c.rel||0)>=0?'+':''}${c.rel||0}</span></div>
+      <div class="xia-yi">侠义值: ${c.xia_yi||0}${c.title ? ' · 称号: '+c.title : ''}</div>
       <div>${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
-      <div>${(c.treasures||[]).map(t => `<span class="treasure">${t}</span>`).join('')}</div>
+      <div>${(c.treasures||[]).map(t => `<span class="treasure" data-treasure='${JSON.stringify(t).replace(/'/g,"\\'")}' onclick="showTreasure(this)">${t.name}</span>`).join('')}</div>
       <div class="${c.alive?'alive':'dead'}">${c.alive?'存活':'已死亡'}</div>
     </div>`;
   }).join('');
@@ -206,12 +316,12 @@ async function loadSelect() {
     const r = await fetch('/api/start/candidates');
     const data = await r.json();
     const grid = document.getElementById('selectGrid');
-    const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
+    const STAT_LABELS = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
     grid.innerHTML = data.map(c => `
       <div class="pick-card" onclick="selectChar('${c.name}')">
         <div class="name">${c.name}</div>
         <div class="stat">${c.gender} · ${c.age}岁 · ${c.region}</div>
-        ${Object.entries(labels).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
+        ${Object.entries(STAT_LABELS).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
         <div class="stat">评分: ${c.score}</div>
         <div class="desc">${c.desc||''}</div>
       </div>
@@ -233,14 +343,15 @@ async function checkPendingEvents() {
   try {
     const r = await fetch('/api/events/pending');
     const data = await r.json();
-    if (data.events && data.events.length > 0) showEvent(data.events[0]);
+    if (data.events && data.events.length > 0) { showEvent(data.events[0]); return true; }
   } catch(e) { console.error(e); }
+  return false;
 }
 
 function showEvent(evt) {
   const overlay = document.getElementById('eventOverlay');
   document.getElementById('eventTitle').textContent = evt.label;
-  const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
+  const STAT_LABELS = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
   const hints = {apprentice:'选择一位师父', marry:'选择一位伴侣', sworn:'选择一位结义之人'};
   document.getElementById('eventIntro').textContent = hints[evt.event]||'';
   const grid = document.getElementById('eventGrid');
@@ -249,7 +360,7 @@ function showEvent(evt) {
     return `<div class="pick-card" onclick="decideEvent('${evt.event}','${c.name}')">
       <div class="name">${c.name}</div>
       <div class="stat">${extra} · ${c.region}</div>
-      ${Object.entries(labels).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
+      ${Object.entries(STAT_LABELS).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
       <div class="desc">${c.desc||''}</div>
     </div>`;
   }).join('');
@@ -262,7 +373,170 @@ async function decideEvent(etype, target) {
     document.getElementById('eventOverlay').classList.remove('active');
     await fetchWorld();
     await fetchEvents();
+    await checkPendingTasks();
   } catch(e) { console.error(e); }
+}
+
+// 任务系统
+async function checkPendingTasks() {
+  try {
+    const r = await fetch('/api/tasks/pending');
+    const data = await r.json();
+    if (data.tasks && data.tasks.length > 0) showTasks(data.tasks);
+  } catch(e) { console.error(e); }
+}
+
+function showTasks(tasks) {
+  const overlay = document.getElementById('taskOverlay');
+  document.getElementById('tickBtn').disabled = true;
+  const list = document.getElementById('taskList');
+  list.innerHTML = tasks.map(t => {
+    const TYPE_LABELS = {non_char:'非人物类', char:'人物类', coop:'合作任务'};
+    const typeLabel = TYPE_LABELS[t.type]||t.type;
+    const chanceLabel = t.scheme_bonus > 0 ? `基础 ${t.base_chance}% · 谋略 ${t.chance_with_scheme}% · 全力 ${t.focus_chance}%` : `基础 ${t.base_chance}% · 全力 ${t.focus_chance}%`;
+    const targetHtml = t.target ? `<div style="color:#4ecdc4;font-size:0.85rem;margin:0.2rem 0;">合作对象: ${t.target}</div>` : '';
+    return `<div class="task-card" id="taskCard${t.id}">
+      <div class="task-name">${t.name} <span style="font-size:0.8rem;color:#888;">[${typeLabel}]</span></div>
+      <div class="task-desc">${t.desc}</div>
+      ${targetHtml}
+      <div class="task-chance">难度 ${t.difficulty} · ${chanceLabel}</div>
+      <div class="task-btns">
+        <button id="taskBtn${t.id}_0" onclick="executeTask(${t.id},'normal')">尝试 (${t.base_chance}%)</button>
+        <button class="task-btn-scheme" id="taskBtn${t.id}_1" onclick="executeTask(${t.id},'scheme')">用谋略 (${t.chance_with_scheme}%)</button>
+        <button class="task-btn-focus" id="taskBtn${t.id}_2" onclick="executeTask(${t.id},'focus')">全力施展 (${t.focus_chance}%)</button>
+      </div>
+    </div>`;
+  }).join('');
+  overlay.classList.add('active');
+}
+
+async function executeTask(taskId, mode) {
+  document.querySelectorAll('#taskCard'+taskId+' button').forEach(b => b.disabled = true);
+  try {
+    const r = await fetch('/api/tasks/execute', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({task_id:taskId, mode:mode})});
+    const result = await r.json();
+    document.getElementById('taskOverlay').classList.remove('active');
+    document.getElementById('tickBtn').disabled = false;
+    const banner = document.getElementById('taskResultBanner');
+    banner.textContent = result.desc;
+    banner.className = 'task-result ' + (result.success ? 'task-result-ok' : 'task-result-fail');
+    banner.style.display = 'block';
+    setTimeout(() => { banner.style.display = 'none'; }, 4000);
+    await fetchWorld();
+    await fetchEvents();
+  } catch(e) { console.error(e); }
+}
+
+function skipTasks() {
+  document.getElementById('taskOverlay').classList.remove('active');
+  document.getElementById('tickBtn').disabled = false;
+}
+
+// 宝物详情
+const STAT_KEYS = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
+
+function showTreasure(el) {
+  try {
+    const t = JSON.parse(el.dataset.treasure);
+    const detail = document.getElementById('treasureDetail');
+    const bonuses = Object.entries(STAT_KEYS).filter(([k]) => t[k] > 0).map(([k,v]) => `<div class="tb-item">${v} <span class="tb-val">+${t[k]}</span></div>`).join('');
+    detail.innerHTML = `
+      <div class="td-name">${t.name}</div>
+      <div class="td-type">【${t.type}】</div>
+      <div class="td-desc">${t.desc||''}</div>
+      ${bonuses ? `<div class="td-bonus">${bonuses}</div>` : '<div style="color:#888;font-size:0.85rem;">无属性加成</div>'}
+    `;
+    document.getElementById('treasureOverlay').classList.add('active');
+  } catch(e) { console.error(e); }
+}
+
+function closeTreasure() {
+  document.getElementById('treasureOverlay').classList.remove('active');
+}
+
+// 不进则退
+async function checkDecay() {
+  try {
+    const r = await fetch('/api/decay/pending');
+    const data = await r.json();
+    if (data && data.stats) { showDecay(data.stats); return true; }
+  } catch(e) { console.error(e); }
+  return false;
+}
+
+function showDecay(stats) {
+  document.getElementById('tickBtn').disabled = true;
+  const grid = document.getElementById('decayGrid');
+  grid.innerHTML = stats.map(s => {
+    const newVal = Math.floor(s.value * 0.9);
+    return `<div class="decay-card" onclick="executeDecay('${s.field}')">
+      <div class="label">${s.label}</div>
+      <div class="value">${s.value}</div>
+      <div class="note">降低10% → ${newVal}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('decayOverlay').classList.add('active');
+}
+
+async function executeDecay(field) {
+  try {
+    await fetch('/api/decay/execute', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({field})});
+    document.getElementById('decayOverlay').classList.remove('active');
+    document.getElementById('tickBtn').disabled = false;
+    await fetchWorld();
+    await fetchEvents();
+    await checkPendingTasks();
+  } catch(e) { console.error(e); }
+}
+
+// 天下第一武道会
+async function checkTournament() {
+  try {
+    const r = await fetch('/api/tournament');
+    const t = await r.json();
+    if (t && t.active && t.champion) {
+      document.getElementById('tournamentBtn').style.display = 'inline-block';
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function showTournament() {
+  try {
+    const r = await fetch('/api/tournament');
+    const t = await r.json();
+    if (!t || !t.active) return;
+    let html = '';
+    for (const g of (t.groups||[])) {
+      html += `<div class="tournament-group"><h3>${g.name}组</h3>`;
+      html += `<div style="font-size:0.8rem;color:#e94560;">参赛者: ${(g.players||[]).join('、')}</div>`;
+      html += `<div style="margin:0.3rem 0;font-size:0.8rem;color:#888;">对战记录:</div>`;
+      for (const m of (g.matches||[])) {
+        html += `<div class="tournament-match">${m.a} vs ${m.b} → ${m.winner}胜</div>`;
+      }
+      html += `<div class="tournament-standings">排名: ${(g.standings||[]).map((s,i) => `第${i+1}名 ${s[0]}(${s[1]}胜${s[2]}负)`).join(' | ')}</div>`;
+      html += `</div>`;
+    }
+    if (t.knockout && t.knockout.length > 0) {
+      html += `<div style="margin-top:1rem;"><h3 style="color:#e040fb;text-align:center;">淘汰赛</h3>`;
+      for (const rnd of t.knockout) {
+        html += `<div class="tournament-ko"><h3>${rnd.round}</h3>`;
+        for (const m of (rnd.matches||[])) {
+          html += `<div class="tournament-match">${m.a} vs ${m.b} → ${m.winner}胜</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+    }
+    if (t.champion) {
+      html += `<div class="tournament-champion"><div class="name">🏆 ${t.champion}</div><div style="color:#a0a0c0;margin-top:0.3rem;">天下第一人 · 武力+10 · 众人好感-10</div></div>`;
+    }
+    document.getElementById('tournamentContent').innerHTML = html;
+    document.getElementById('tournamentOverlay').classList.add('active');
+  } catch(e) { console.error(e); }
+}
+
+function closeTournament() {
+  document.getElementById('tournamentOverlay').classList.remove('active');
 }
 
 loadSelect();
