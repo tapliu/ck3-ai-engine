@@ -108,6 +108,11 @@ class World:
                 continue
             for i, c in enumerate(chars):
                 c.city = region_cities[i % len(region_cities)]
+        # 朱棣初始在应天府（帝都）
+        zd = self.get("朱棣")
+        if zd:
+            zd.city = "应天府"
+            zd.region = "中原"
 
     def create(self, gender, name, l, w, i, p, desc="", age=20):
         c = Character(self.next_id, name, gender, l, w, i, p, desc, age)
@@ -722,16 +727,22 @@ class World:
             self._emit({"type": "move", "desc": f"{p.name}日夜兼程，从{old_city}经{via}抵达{dest}"})
             return {"ok": True, "city": dest, "action": "rush", "via": via}
 
+    def zhudi_move(self):
+        """朱棣第70回合迁都燕京"""
+        round_n = getattr(self, "engine", None) and self.engine.round or 0
+        if round_n != 70:
+            return
+        zd = self.get("朱棣")
+        if not zd or not zd.alive:
+            return
+        old_city = zd.city
+        zd.city = "燕京"
+        self._update_region(zd)
+        import app.models.region as region_mod
+        region_mod.CAPITAL = "燕京"
+        self._emit({"type": "wuxia", "desc": f"第70回合，朱棣从{old_city}迁都燕京！大明都城正式北迁！"})
+
         # 普通移动
-        if dest not in CITY_CONNECTIONS.get(p.city, []):
-            return {"ok": False, "desc": f"无法从{p.city}直接到达{dest}"}
-        old_city = p.city
-        p.city = dest
-        p.next_move_round = round_n + 2
-        self.pending_move = None
-        self._update_region(p)
-        self._emit({"type": "move", "desc": f"{p.name}从{old_city}出发，抵达{dest}"})
-        return {"ok": True, "city": dest, "action": "move"}
 
     # ---- 天下第一武道会（每30回合） ----
 
