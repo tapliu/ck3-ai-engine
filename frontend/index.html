@@ -610,9 +610,11 @@ async function showTournament() {
       html += `<div style="font-size:0.8rem;color:#e94560;">参赛者: ${(g.players||[]).join('、')}</div>`;
       html += `<div style="margin:0.3rem 0;font-size:0.8rem;color:#888;">对战记录:</div>`;
       for (const m of (g.matches||[])) {
-        html += `<div class="tournament-match">${m.a} vs ${m.b} → ${m.winner}胜</div>`;
+        html += `<div class="tournament-match">[${m.round}] ${m.a} vs ${m.b} → ${m.winner}胜</div>`;
       }
-      html += `<div class="tournament-standings">排名: ${(g.standings||[]).map((s,i) => `第${i+1}名 ${s[0]}(${s[1]}胜${s[2]}负)`).join(' | ')}</div>`;
+      if (g.results) {
+        html += `<div class="tournament-standings">出线: 第一名 ${g.results['第一名']} | 第二名 ${g.results['第二名']}</div>`;
+      }
       html += `</div>`;
     }
     if (t.knockout && t.knockout.length > 0) {

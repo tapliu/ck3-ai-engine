@@ -455,21 +455,26 @@ class World:
         group_winners, group_runners = [], []
         for g in groups:
             players = g["players"]
-            standings = {c.id: {"wins": 0, "losses": 0, "char": c} for c in players}
-            matches = []
-            for i in range(len(players)):
-                for j in range(i + 1, len(players)):
-                    winner, loser = self._tournament_fight(players[i], players[j])
-                    standings[winner.id]["wins"] += 1
-                    standings[loser.id]["losses"] += 1
-                    matches.append({"a": players[i].name, "b": players[j].name, "winner": winner.name})
-            sorted_std = sorted(standings.values(), key=lambda s: s["wins"], reverse=True)
-            g["matches"] = matches
-            g["standings"] = [(s["char"].name, s["wins"], s["losses"]) for s in sorted_std]
-            if len(sorted_std) > 0:
-                group_winners.append(sorted_std[0]["char"])
-            if len(sorted_std) > 1:
-                group_runners.append(sorted_std[1]["char"])
+            random.shuffle(players)
+            m = []
+            # 第一轮：随机配对
+            w1, l1 = self._tournament_fight(players[0], players[1])
+            w2, l2 = self._tournament_fight(players[2], players[3])
+            m.append({"round":"第一轮","a":players[0].name,"b":players[1].name,"winner":w1.name})
+            m.append({"round":"第一轮","a":players[2].name,"b":players[3].name,"winner":w2.name})
+            # 胜者组决赛 → 小组第一出线
+            wf_w, wf_l = self._tournament_fight(w1, w2)
+            m.append({"round":"胜者组决赛","a":w1.name,"b":w2.name,"winner":wf_w.name})
+            # 败者组决赛
+            lf_w, lf_l = self._tournament_fight(l1, l2)
+            m.append({"round":"败者组决赛","a":l1.name,"b":l2.name,"winner":lf_w.name})
+            # 决胜轮：胜者组决赛败方 vs 败者组决赛胜方 → 小组第二出线
+            f_w, f_l = self._tournament_fight(wf_l, lf_w)
+            m.append({"round":"决胜轮","a":wf_l.name,"b":lf_w.name,"winner":f_w.name})
+            g["matches"] = m
+            g["results"] = {"第一名": wf_w.name, "第二名": f_w.name}
+            group_winners.append(wf_w)
+            group_runners.append(f_w)
 
         # 8强：小组第一 vs 其他组第二（交叉配对）
         knockout = []
@@ -484,7 +489,7 @@ class World:
 
         if len(quarter_pairs) < 2:
             self._emit({"type": "tournament", "desc": "武道会8强人数不足，取消决赛"})
-            self.tournament = {"groups": [{"name": g["name"], "players": [p.name for p in g["players"]], "matches": g["matches"], "standings": g["standings"]} for g in groups], "knockout": [], "champion": None}
+            self.tournament = {"groups": [{"name": g["name"], "players": [p.name for p in g["players"]], "matches": g["matches"], "results": g["results"]} for g in groups], "knockout": [], "champion": None}
             return
 
         current = []
@@ -521,7 +526,7 @@ class World:
 
         self.tournament = {
             "active": True,
-            "groups": [{"name": g["name"], "players": [p.name for p in g["players"]], "matches": g["matches"], "standings": g["standings"]} for g in groups],
+            "groups": [{"name": g["name"], "players": [p.name for p in g["players"]], "matches": g["matches"], "results": g["results"]} for g in groups],
             "knockout": knockout,
             "champion": champion.name if champion else None,
         }
