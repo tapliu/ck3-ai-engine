@@ -478,7 +478,6 @@ let autoTimer = null;
 function toggleAuto() {
   const btn = document.getElementById('autoBtn');
   if (autoTimer) {
-    clearInterval(autoTimer);
     autoTimer = null;
     btn.textContent = '托管';
     btn.style.background = '#2d6a4f';
@@ -492,10 +491,61 @@ function toggleAuto() {
 
 async function doAutoTick() {
   if (!autoTimer) return;
+  // 按优先级自动处理弹窗：事件 > 不进则退 > 任务
+  if (document.getElementById('eventOverlay').classList.contains('active')) {
+    await autoChooseEvent();
+    setTimeout(doAutoTick, 300);
+    return;
+  }
+  if (document.getElementById('decayOverlay').classList.contains('active')) {
+    await autoChooseDecay();
+    setTimeout(doAutoTick, 300);
+    return;
+  }
+  if (document.getElementById('taskOverlay').classList.contains('active')) {
+    await autoExecuteBestTask();
+    setTimeout(doAutoTick, 300);
+    return;
+  }
   const tickBtn = document.getElementById('tickBtn');
   if (tickBtn.disabled) { setTimeout(doAutoTick, 500); return; }
   await tick();
   if (autoTimer) toggleAuto();
+}
+
+async function autoChooseEvent() {
+  try {
+    const r = await fetch('/api/events/pending');
+    const data = await r.json();
+    if (data.events && data.events[0] && data.events[0].candidates && data.events[0].candidates[0]) {
+      await decideEvent(data.events[0].event, data.events[0].candidates[0].name);
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function autoChooseDecay() {
+  try {
+    const r = await fetch('/api/decay/pending');
+    const data = await r.json();
+    if (data.stats && data.stats.length > 0) {
+      const best = data.stats.reduce((a,b) => a.value > b.value ? a : b);
+      await executeDecay(best.field);
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function autoExecuteBestTask() {
+  try {
+    const r = await fetch('/api/tasks/pending');
+    const data = await r.json();
+    const tasks = data.tasks || [];
+    if (tasks.length === 0) return;
+    // 合作任务优先；选择成功率最高的模式
+    const chosen = tasks.find(t => t.type === 'coop') || tasks[0];
+    const rates = [{mode:'normal',v:chosen.base_chance},{mode:'scheme',v:chosen.chance_with_scheme||0},{mode:'focus',v:chosen.focus_chance}];
+    rates.sort((a,b) => b.v - a.v);
+    await executeTask(chosen.id, rates[0].mode);
+  } catch(e) { console.error(e); }
 }
 
 // 不进则退
