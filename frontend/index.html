@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CK3 武侠AI引擎</title>
+<title>浪子江湖-侠行四海</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 2rem; max-width: 1200px; margin: 0 auto; }
@@ -13,9 +13,11 @@ h1 { text-align:center; color:#e94560; margin-bottom:1rem; }
 .controls { display:flex; gap:0.5rem; }
 button { padding:0.5rem 1.5rem; background:#e94560; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:1rem; }
 button:hover { background:#c73650; }
+button:disabled { opacity:0.5; cursor:not-allowed; }
 .layout { display:flex; gap:1.5rem; }
-.grid { flex:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem; }
+.grid { flex:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
 .card { background:#16213e; border-radius:8px; padding:1rem; border:1px solid #0f3460; }
+.card.player { border-color:#e94560; box-shadow:0 0 8px rgba(233,69,96,0.3); }
 .card .name { font-size:1.2rem; font-weight:bold; color:#e94560; }
 .card .tag { font-size:0.8rem; color:#888; margin-left:0.5rem; }
 .card .stats { display:grid; grid-template-columns:1fr 1fr; gap:0.2rem 1rem; margin:0.5rem 0; }
@@ -24,20 +26,35 @@ button:hover { background:#c73650; }
 .card .val { color:#eee; font-weight:bold; }
 .card .alive { color:#4caf50; font-weight:bold; }
 .card .dead { color:#f44336; font-weight:bold; }
+.card .badge { display:inline-block; background:#0f3460; border-radius:4px; padding:0.1rem 0.4rem; font-size:0.75rem; margin-right:0.3rem; }
 .sidebar { width: 320px; flex-shrink:0; }
 .events { background:#16213e; border-radius:8px; padding:1rem; max-height:600px; overflow-y:auto; position:sticky; top:1rem; }
 .events h2 { margin-bottom:0.5rem; color:#e94560; font-size:1rem; }
 .event-item { padding:0.4rem 0; border-bottom:1px solid #0f3460; font-size:0.9rem; }
 .event-round { color:#e94560; font-weight:bold; margin-right:0.5rem; }
-@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } }
+
+/* overlay */
+.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:100; }
+.overlay.active { display:flex; }
+.modal { background:#1a1a2e; border:2px solid #e94560; border-radius:12px; padding:2rem; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; }
+.modal h2 { color:#e94560; margin-bottom:1rem; text-align:center; }
+.modal .intro { text-align:center; margin-bottom:1.5rem; color:#a0a0c0; }
+.pick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
+.pick-card { background:#16213e; border:2px solid #0f3460; border-radius:8px; padding:1rem; cursor:pointer; text-align:center; transition:all 0.2s; }
+.pick-card:hover { border-color:#e94560; transform:translateY(-4px); }
+.pick-card .name { font-size:1.1rem; font-weight:bold; color:#e94560; }
+.pick-card .stat { font-size:0.85rem; color:#a0a0c0; margin:0.2rem 0; }
+.pick-card .desc { font-size:0.8rem; color:#666; margin-top:0.5rem; }
+
+@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } .pick-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
-<h1>CK3 武侠AI引擎</h1>
+<h1>浪子江湖 · 侠行四海</h1>
 <div class="header">
   <div class="round" id="roundDisplay">回合: 0</div>
   <div class="controls">
-    <button onclick="tick()">Tick (推进一回合)</button>
+    <button id="tickBtn" onclick="tick()" disabled>Tick (推进一回合)</button>
     <button onclick="fetchWorld()">刷新</button>
   </div>
 </div>
@@ -48,6 +65,24 @@ button:hover { background:#c73650; }
       <h2>事件日志</h2>
       <div id="eventLog"></div>
     </div>
+  </div>
+</div>
+
+<!-- 选人弹窗 -->
+<div class="overlay active" id="selectOverlay">
+  <div class="modal">
+    <h2>选择你的角色</h2>
+    <div class="intro">闯荡江湖，从选择一位侠士开始</div>
+    <div class="pick-grid" id="selectGrid"></div>
+  </div>
+</div>
+
+<!-- 事件弹窗 -->
+<div class="overlay" id="eventOverlay">
+  <div class="modal">
+    <h2 id="eventTitle">事件</h2>
+    <div class="intro" id="eventIntro"></div>
+    <div class="pick-grid" id="eventGrid"></div>
   </div>
 </div>
 
@@ -62,10 +97,13 @@ async function fetchWorld() {
 
 async function tick() {
   try {
+    document.getElementById('tickBtn').disabled = true;
     await fetch('/tick', {method:'POST'});
     await fetchWorld();
     await fetchEvents();
+    await checkPendingEvents();
   } catch(e) { console.error(e); }
+  document.getElementById('tickBtn').disabled = false;
 }
 
 async function fetchEvents() {
@@ -83,22 +121,102 @@ function render(data) {
   document.getElementById('roundDisplay').textContent = '回合: ' + (data.round||0);
   const el = document.getElementById('world');
   const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
-  el.innerHTML = (data.characters||[]).map(c => `
-    <div class="card">
-      <div class="name">${c.name}<span class="tag">${c.dynasty||''} · ${c.region}</span></div>
+  el.innerHTML = (data.characters||[]).map(c => {
+    const isPlayer = data.player && data.player.name === c.name;
+    const rel = [];
+    if (c.master) rel.push('师:'+c.master);
+    if (c.spouse) rel.push('配偶:'+c.spouse);
+    (c.sworn_brothers||[]).forEach(b => rel.push('义:'+b));
+    return `
+    <div class="card ${isPlayer?'player':''}">
+      <div class="name">${c.name}${isPlayer?' <span class="tag">[你]</span>':''}<span class="tag">${c.region}</span></div>
+      <div class="stat" style="color:#888;font-size:0.85rem;">${c.desc||''}</div>
       <div class="stats">
         ${Object.entries(labels).map(([k,v]) =>
           `<div class="stat"><span>${v}</span> <span class="val">${c[k]}</span></div>`
         ).join('')}
+        <div class="stat"><span>年龄</span> <span class="val">${c.age}</span></div>
         <div class="stat"><span>评分</span> <span class="val">${c.score}</span></div>
-        <div class="stat"><span>配偶</span> <span class="val">${c.spouse||'无'}</span></div>
       </div>
+      <div>${rel.map(r => `<span class="badge">${r}</span>`).join('')}</div>
       <div class="${c.alive?'alive':'dead'}">${c.alive?'存活':'已死亡'}</div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
-fetchWorld();
+// 角色选择
+async function loadSelect() {
+  try {
+    const r = await fetch('/api/start/candidates');
+    const data = await r.json();
+    const grid = document.getElementById('selectGrid');
+    const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
+    grid.innerHTML = data.map(c => `
+      <div class="pick-card" onclick="selectChar('${c.name}')">
+        <div class="name">${c.name}</div>
+        <div class="stat">${c.gender} · ${c.age}岁 · ${c.region}</div>
+        ${Object.entries(labels).map(([k,v]) =>
+          `<div class="stat">${v}: ${c[k]}</div>`
+        ).join('')}
+        <div class="stat">评分: ${c.score}</div>
+        <div class="desc">${c.desc||''}</div>
+      </div>
+    `).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function selectChar(name) {
+  try {
+    await fetch('/api/start/select', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+    document.getElementById('selectOverlay').classList.remove('active');
+    document.getElementById('tickBtn').disabled = false;
+    await fetchWorld();
+  } catch(e) { console.error(e); }
+}
+
+// 事件决策
+async function checkPendingEvents() {
+  try {
+    const r = await fetch('/api/events/pending');
+    const data = await r.json();
+    if (data.events && data.events.length > 0) {
+      showEvent(data.events[0]);
+    }
+  } catch(e) { console.error(e); }
+}
+
+function showEvent(evt) {
+  const overlay = document.getElementById('eventOverlay');
+  document.getElementById('eventTitle').textContent = evt.label;
+  const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
+  document.getElementById('eventIntro').textContent = evt.label==='拜师'?'选择一位师父':evt.label==='结婚'?'选择一位伴侣':evt.label==='结拜'?'选择一位结义之人':'';
+  const grid = document.getElementById('eventGrid');
+  grid.innerHTML = evt.candidates.map(c => {
+    const extra = evt.event==='apprentice' ? `年龄${c.age}岁` : evt.event==='marry' ? `${c.gender} · ${c.age}岁` : `${c.age}岁`;
+    return `
+      <div class="pick-card" onclick="decideEvent('${evt.event}','${c.name}')">
+        <div class="name">${c.name}</div>
+        <div class="stat">${extra}</div>
+        ${Object.entries(labels).map(([k,v]) =>
+          `<div class="stat">${v}: ${c[k]}</div>`
+        ).join('')}
+        <div class="desc">${c.desc||''}</div>
+      </div>
+    `;
+  }).join('');
+  overlay.classList.add('active');
+}
+
+async function decideEvent(etype, target) {
+  try {
+    await fetch('/api/events/decide', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event:etype, target})});
+    document.getElementById('eventOverlay').classList.remove('active');
+    await fetchWorld();
+    await fetchEvents();
+  } catch(e) { console.error(e); }
+}
+
+loadSelect();
 </script>
 </body>
 </html>

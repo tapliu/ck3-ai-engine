@@ -1,25 +1,26 @@
-# app/models/character.py
 import random
 
 REGIONS = ["中原","江南","塞北","西域","东海"]
 
 class Character:
-    def __init__(self, cid, name, gender, l, w, i, p, desc=""):
+    def __init__(self, cid, name, gender, l, w, i, p, desc="", age=20):
         self.id = cid
         self.name = name
         self.gender = gender
-
         self.l = l
         self.w = w
         self.i = i
         self.p = p
+        self.age = age
 
         self.alive = True
         self.region = random.choice(REGIONS)
-
         self.dynasty = name
-        self.spouse = None
         self.desc = desc
+
+        self.spouse = None
+        self.master = None
+        self.sworn_brothers = []
 
         self.memory = []
 
@@ -31,9 +32,9 @@ class Character:
             "id": self.id,
             "name": self.name,
             "gender": self.gender,
+            "age": self.age,
             "region": self.region,
             "dynasty": self.dynasty,
-            "spouse": self.spouse,
             "desc": self.desc,
             "l": self.l,
             "w": self.w,
@@ -41,5 +42,8 @@ class Character:
             "p": self.p,
             "score": round(self.score(), 2),
             "alive": self.alive,
+            "spouse": self.spouse,
+            "master": self.master,
+            "sworn_brothers": self.sworn_brothers,
             "memory": self.memory[-5:],
         }
