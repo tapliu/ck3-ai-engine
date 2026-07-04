@@ -122,7 +122,8 @@ def execute_decay(body: DecayChoice):
 # ---- 移动系统 ----
 
 class MoveRequest(BaseModel):
-    dest: str
+    dest: str = ""
+    action: str = "move"  # "move", "stay", "rush"
 
 
 @app.get("/api/move/pending")
@@ -131,7 +132,7 @@ def get_movement():
 
 @app.post("/api/move")
 def execute_move(body: MoveRequest):
-    result = world.execute_move(body.dest)
+    result = world.execute_move(dest=body.dest, action=body.action)
     if not result.get("ok"):
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(result))

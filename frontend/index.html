@@ -171,6 +171,11 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <h1>浪子江湖 · 侠行四海</h1>
 <div class="header">
   <div class="round" id="roundDisplay">回合: 0</div>
+  <div style="font-size:0.85rem;color:#aaa;">
+    <span id="aliveCount" style="color:#4caf50;">存活: 0</span>
+    &nbsp;
+    <span id="deadCount" style="color:#f44336;">阵亡: 0</span>
+  </div>
   <div class="controls">
     <button id="tickBtn" onclick="tick()" disabled>推进至下一回合</button>
     <button id="autoBtn" onclick="toggleAuto()" style="background:#2d6a4f;">托管</button>
@@ -238,9 +243,15 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 
 <!-- 移动弹窗 -->
 <div class="overlay" id="moveOverlay">
-  <div class="modal" style="max-width:500px;">
+  <div class="modal" style="max-width:560px;">
     <h2>江湖行路</h2>
-    <div class="intro" id="moveIntro">选择前往的目的地</div>
+    <div class="intro" id="moveIntro">选择行动</div>
+<div style="display:flex;gap:0.5rem;margin-bottom:0.8rem;flex-wrap:wrap;">
+  <button class="move-action-btn" id="moveStayBtn" onclick="executeMove(null,'stay')" style="background:#2d2d5e;border:1px solid #888;">停留修整</button>
+  <button class="move-action-btn" id="moveRushBtn" onclick="toggleRushMode()" style="background:#3d1a2e;border:1px solid #e94560;">日夜兼程 <span id="rushLabel"></span></button>
+  <button class="move-action-btn" onclick="renderMoveGrid(false)" id="moveBackBtn" style="background:#333;border:1px solid #666;display:none;">← 返回</button>
+</div>
+    <div class="intro" style="font-size:0.85rem;color:#aaa;">或选择相邻城市前往：</div>
     <div class="pick-grid" id="moveGrid" style="grid-template-columns:1fr 1fr;"></div>
   </div>
 </div>
@@ -440,7 +451,12 @@ function render(data) {
     const desc = sortBy === 'rel' ? (c) => -(c.rel||0) : (c) => -(c[sortBy]||0);
     chars.sort((a,b) => desc(a) - desc(b));
   }
-  el.innerHTML = chars.map(c => {
+  const aliveChars = chars.filter(c => c.alive);
+  const deadChars = chars.filter(c => !c.alive);
+  document.getElementById('aliveCount').textContent = '存活: ' + aliveChars.length;
+  document.getElementById('deadCount').textContent = '阵亡: ' + deadChars.length;
+
+  function charCard(c) {
     const rels = [];
     if (c.master) rels.push('师:'+c.master);
     if (c.spouse) rels.push('配偶:'+c.spouse);
@@ -468,7 +484,17 @@ function render(data) {
       <div>${(c.treasures||[]).map(t => `<span class="treasure" data-treasure='${JSON.stringify(t).replace(/'/g,"\\'")}' onclick="showTreasure(this)">${t.name}</span>`).join('')}</div>
       <div class="${c.alive?'alive':'dead'}">${c.alive?'存活':'已死亡'}</div>
     </div>`;
-  }).join('');
+  }
+
+  let html = '<div class="npc-section"><h3 style="color:#4caf50;margin-bottom:0.5rem;">江湖群侠 (存活)</h3>';
+  html += aliveChars.map(c => charCard(c)).join('');
+  html += '</div>';
+  if (deadChars.length > 0) {
+    html += '<div class="npc-section" style="margin-top:1.5rem;"><h3 style="color:#f44336;margin-bottom:0.5rem;">已故英魂 (阵亡)</h3>';
+    html += deadChars.map(c => charCard(c)).join('');
+    html += '</div>';
+  }
+  el.innerHTML = html;
 }
 
 // 角色选择
@@ -501,31 +527,68 @@ async function selectChar(name) {
 }
 
 // 移动系统
-async function checkPendingMove() {
-  if (!window._lastData || !window._lastData.pending_move) return false;
+var _rushMode = false;
+
+function renderMoveGrid(rush) {
   const pm = window._lastData.pending_move;
+  if (!pm) return;
   const info = window._cities;
   const grid = document.getElementById('moveGrid');
-  document.getElementById('moveIntro').textContent = `当前位置: ${pm.city}，选择前往的目的地`;
-  grid.innerHTML = pm.routes.map(d => {
+  _rushMode = rush;
+  document.getElementById('moveBackBtn').style.display = rush ? 'inline-block' : 'none';
+  const cities = rush ? (pm.two_step_cities || []) : pm.routes;
+  const action = rush ? 'rush' : 'move';
+  const label = rush ? '日夜兼程目的地' : '相邻城市';
+  document.getElementById('moveIntro').textContent = `当前位置: ${pm.city} · ${label}`;
+  if (cities.length === 0) {
+    grid.innerHTML = '<div style="color:#888;text-align:center;padding:1rem;">无可选目的地</div>';
+    return;
+  }
+  grid.innerHTML = cities.map(d => {
     const ci = info && info[d] || {};
     const badges = [];
     if (ci.capital) badges.push('帝都');
     if (ci.regional_center) badges.push('要冲');
     const bHtml = badges.length ? ' <span style="color:#ffd700;">['+badges.join('+')+']</span>' : '';
     const region = ci.region ? ' · '+ci.region : '';
-    return `<div class="move-card" onclick="executeMove('${d}')">
-      <div class="dest">${d}${bHtml}</div>
+    const extra = rush ? ' <span style="color:#e94560;font-size:0.7rem;">[2程]</span>' : '';
+    return `<div class="move-card" onclick="executeMove('${d}','${action}')">
+      <div class="dest">${d}${bHtml}${extra}</div>
       <div class="rinfo">${region}</div>
     </div>`;
   }).join('');
+}
+
+function toggleRushMode() {
+  renderMoveGrid(!_rushMode);
+}
+
+async function checkPendingMove() {
+  if (!window._lastData || !window._lastData.pending_move) return false;
+  const pm = window._lastData.pending_move;
+  _rushMode = false;
+  // 日夜兼程按钮状态
+  const rushBtn = document.getElementById('moveRushBtn');
+  const rushLbl = document.getElementById('rushLabel');
+  if (pm.rush_available) {
+    rushBtn.disabled = false;
+    rushLbl.textContent = `(冷却3回合) · ${(pm.two_step_cities||[]).length}城可达`;
+    rushBtn.style.opacity = '1';
+  } else {
+    rushBtn.disabled = true;
+    rushLbl.textContent = `(冷却剩${pm.rush_cooldown_remaining}回合)`;
+    rushBtn.style.opacity = '0.5';
+  }
+  renderMoveGrid(false);
   document.getElementById('moveOverlay').classList.add('active');
   return true;
 }
 
-async function executeMove(dest) {
+async function executeMove(dest, action) {
   try {
-    await fetch('/api/move', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dest})});
+    const body = {action: action};
+    if (dest) body.dest = dest;
+    await fetch('/api/move', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     document.getElementById('moveOverlay').classList.remove('active');
     await fetchWorld();
     await fetchEvents();
@@ -584,6 +647,12 @@ function showTasks(tasks) {
   const overlay = document.getElementById('taskOverlay');
   document.getElementById('tickBtn').disabled = true;
   const list = document.getElementById('taskList');
+  const pData = window._lastData && window._lastData.player;
+  const curRound = (window._lastData && window._lastData.round) || 0;
+  const schemeCd = (pData && pData.scheme_cooldown_round) || 0;
+  const focusCd = (pData && pData.focus_cooldown_round) || 0;
+  const schemeOnCd = schemeCd > curRound;
+  const focusOnCd = focusCd > curRound;
   list.innerHTML = tasks.map(t => {
     const TYPE_LABELS = {non_char:'非人物类', char:'人物类', coop:'合作任务', deadly:'极难任务'};
     const typeLabel = TYPE_LABELS[t.type]||t.type;
@@ -591,15 +660,21 @@ function showTasks(tasks) {
     const targetHtml = t.target ? `<div style="color:#4ecdc4;font-size:0.85rem;margin:0.2rem 0;">合作对象: ${t.target}</div>` : '';
     const deadlyIcon = t.deadly ? `<span class="task-deadly-icon">☠ 极难</span>` : '';
     const deadlyCls = t.deadly ? ' task-card-deadly' : '';
+    let cdHtml = '';
+    if (schemeOnCd) cdHtml += `<div style="color:#e94560;font-size:0.8rem;margin:0.1rem 0;">谋略冷却剩余 ${schemeCd - curRound} 回合</div>`;
+    if (focusOnCd) cdHtml += `<div style="color:#e94560;font-size:0.8rem;margin:0.1rem 0;">全力施展冷却剩余 ${focusCd - curRound} 回合</div>`;
+    const schemeDisabled = schemeOnCd ? 'disabled' : '';
+    const focusDisabled = focusOnCd ? 'disabled' : '';
     return `<div class="task-card${deadlyCls}" id="taskCard${t.id}">
       <div class="task-name">${t.name} ${deadlyIcon}<span style="font-size:0.8rem;color:#888;">[${typeLabel}]</span></div>
       <div class="task-desc">${t.desc}</div>
       ${targetHtml}
       <div class="task-chance">难度 ${t.difficulty} · ${chanceLabel}</div>
+      ${cdHtml}
       <div class="task-btns">
         <button id="taskBtn${t.id}_0" onclick="executeTask(${t.id},'normal')">尝试 (${t.base_chance}%)</button>
-        <button class="task-btn-scheme" id="taskBtn${t.id}_1" onclick="executeTask(${t.id},'scheme')">用谋略 (${t.chance_with_scheme}%)</button>
-        <button class="task-btn-focus" id="taskBtn${t.id}_2" onclick="executeTask(${t.id},'focus')">全力施展 (${t.focus_chance}%)</button>
+        <button class="task-btn-scheme" ${schemeDisabled} id="taskBtn${t.id}_1" onclick="executeTask(${t.id},'scheme')">用谋略 (${t.chance_with_scheme}%)</button>
+        <button class="task-btn-focus" ${focusDisabled} id="taskBtn${t.id}_2" onclick="executeTask(${t.id},'focus')">全力施展 (${t.focus_chance}%)</button>
       </div>
     </div>`;
   }).join('');
@@ -674,8 +749,11 @@ async function doAutoTick() {
   if (!autoTimer) return;
   // 按优先级自动处理弹窗：移动 > 事件 > 不进则退 > 任务
   if (document.getElementById('moveOverlay').classList.contains('active')) {
+    // 优先移动，其次日夜兼程，最后停留
     const mb = document.querySelector('#moveGrid .move-card:first-child');
     if (mb) { mb.click(); }
+    else if (!document.getElementById('moveRushBtn').disabled) { document.getElementById('moveRushBtn').click(); }
+    else { document.getElementById('moveStayBtn').click(); }
     setTimeout(doAutoTick, 300);
     return;
   }

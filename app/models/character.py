@@ -24,6 +24,9 @@ class Character:
         self.city = None
         self.dynasty = name
         self.next_move_round = 0
+        self.scheme_cooldown_round = 0
+        self.focus_cooldown_round = 0
+        self.rush_cooldown_round = 0
         self.desc = desc
 
         self.spouse = None
@@ -98,6 +101,9 @@ class Character:
             "title": self.title,
             "titles": self.titles,
             "next_move_round": self.next_move_round,
+            "scheme_cooldown_round": self.scheme_cooldown_round,
+            "focus_cooldown_round": self.focus_cooldown_round,
+            "rush_cooldown_round": self.rush_cooldown_round,
             "memory": self.memory[-5:],
             "init_l": self._init_l,
             "init_w": self._init_w,

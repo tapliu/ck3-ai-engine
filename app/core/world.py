@@ -342,7 +342,7 @@ class World:
 
     def generate_tasks(self):
         self.pending_tasks = []
-        pool = NON_CHAR_TASKS + CHAR_TASKS + COOP_TASKS
+        pool = NON_CHAR_TASKS + CHAR_TASKS + COOP_TASKS + COOP_TASKS + COOP_TASKS
         # 概率出现极难任务
         if random.random() < 0.3:
             pool = pool + DEADLY_TASKS
@@ -405,6 +405,11 @@ class World:
         task = next((t for t in self.pending_tasks if t["id"] == task_id), None)
         if not task or not self.player_char:
             return {"success": False, "desc": "任务不存在"}
+        round_n = getattr(self, "engine", None) and self.engine.round or 0
+        if mode == "scheme" and self.player_char.scheme_cooldown_round > round_n:
+            return {"success": False, "desc": f"谋略需冷却至第{self.player_char.scheme_cooldown_round}回合，当前第{round_n}回合"}
+        if mode == "focus" and self.player_char.focus_cooldown_round > round_n:
+            return {"success": False, "desc": f"全力施展需冷却至第{self.player_char.focus_cooldown_round}回合，当前第{round_n}回合"}
         stat_val = getattr(self.player_char, task["stat"])
         if mode == "focus":
             chance = min(95, max(5, 50 + (stat_val - task["difficulty"]) * 0.75))
@@ -415,6 +420,10 @@ class World:
         roll = random.randint(1, 100)
         success = roll <= chance
         self.pending_tasks = []
+        if mode == "scheme":
+            self.player_char.scheme_cooldown_round = round_n + 3
+        elif mode == "focus":
+            self.player_char.focus_cooldown_round = round_n + 3
         desc_parts = [f"{self.player_char.name}执行「{task['name']}」"]
         mode_labels = {"scheme":"（运用智谋辅助）", "focus":"（全力施展）"}
         if mode in mode_labels:
@@ -425,7 +434,7 @@ class World:
             if task["type"] == "coop" and task.get("target"):
                 target = self.get(task["target"])
                 if target:
-                    change = random.randint(10, 20)
+                    change = random.randint(20, 40)
                     self.rel[self.player_char.id][target.id] += change
                     self.rel[target.id][self.player_char.id] += change
                     self.player_char.xia_yi += xia_yi_gain
@@ -451,7 +460,7 @@ class World:
             if task["type"] == "coop" and task.get("target"):
                 target = self.get(task["target"])
                 if target:
-                    change = -random.randint(5, 10)
+                    change = -random.randint(10, 20)
                     self.rel[self.player_char.id][target.id] += change
                     self.rel[target.id][self.player_char.id] += change
                     desc_parts.append(f"失败！与{target.name}好感度{change}")
@@ -596,6 +605,22 @@ class World:
                 c.region = r
                 return
 
+    def _two_step_destinations(self, city):
+        """返回所有2步可达的城市（中间城市, 目的地）"""
+        result = []
+        for c1 in CITY_CONNECTIONS.get(city, []):
+            for c2 in CITY_CONNECTIONS.get(c1, []):
+                if c2 != city:
+                    result.append((c1, c2))
+        return result
+
+    def _find_via(self, cur_city, target):
+        """寻找从cur_city经哪座城市可2步到达target"""
+        for c1 in CITY_CONNECTIONS.get(cur_city, []):
+            if target in CITY_CONNECTIONS.get(c1, []):
+                return c1
+        return None
+
     def check_movement(self):
         if not getattr(self, "engine", None):
             return
@@ -609,27 +634,104 @@ class World:
             if not routes:
                 continue
             if c == self.player_char:
-                self.pending_move = {"city": c.city, "routes": routes}
+                rush_avail = c.rush_cooldown_round <= round_n
+                rush_cd = max(0, c.rush_cooldown_round - round_n)
+                two_step_raw = self._two_step_destinations(c.city)
+                # 去重：按最终目的地合并（多个via可能到达同一城市）
+                two_step_map = {}
+                for via, d in two_step_raw:
+                    if d not in two_step_map:
+                        two_step_map[d] = via
+                self.pending_move = {
+                    "city": c.city,
+                    "routes": routes,
+                    "rush_available": rush_avail,
+                    "rush_cooldown_remaining": rush_cd,
+                    "two_step_cities": list(two_step_map.keys()),
+                }
             else:
-                dest = random.choice(routes)
-                old_city = c.city
-                c.city = dest
-                c.next_move_round = round_n + 2
-                self._update_region(c)
-                self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
+                # NPC行为：20%停留 60%移动 20%日夜兼程
+                r = random.random()
+                if r < 0.2:
+                    c.next_move_round = round_n + 2
+                    self._emit({"type": "move", "desc": f"{c.name}选择在{c.city}停留修整"})
+                elif r < 0.8:
+                    dest = random.choice(routes)
+                    old_city = c.city
+                    c.city = dest
+                    c.next_move_round = round_n + 2
+                    self._update_region(c)
+                    self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
+                elif c.rush_cooldown_round <= round_n:
+                    two_step = self._two_step_destinations(c.city)
+                    if two_step:
+                        via, dest = random.choice(two_step)
+                        old_city = c.city
+                        c.city = dest
+                        c.next_move_round = round_n + 2
+                        c.rush_cooldown_round = round_n + 3
+                        self._update_region(c)
+                        self._emit({"type": "move", "desc": f"{c.name}日夜兼程，从{old_city}经{via}抵达{dest}"})
+                    else:
+                        dest = random.choice(routes)
+                        old_city = c.city
+                        c.city = dest
+                        c.next_move_round = round_n + 2
+                        self._update_region(c)
+                        self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
+                else:
+                    dest = random.choice(routes)
+                    old_city = c.city
+                    c.city = dest
+                    c.next_move_round = round_n + 2
+                    self._update_region(c)
+                    self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
 
-    def execute_move(self, dest):
+    def execute_move(self, dest=None, action="move"):
         if not self.player_char or not self.pending_move:
             return {"ok": False}
         p = self.player_char
+        round_n = getattr(self, "engine", None) and self.engine.round or 0
+
+        if action == "stay":
+            p.next_move_round = round_n + 2
+            self.pending_move = None
+            self._emit({"type": "move", "desc": f"{p.name}选择在{p.city}停留修整"})
+            return {"ok": True, "city": p.city, "action": "stay"}
+
+        if action == "rush":
+            if p.rush_cooldown_round > round_n:
+                return {"ok": False, "desc": "日夜兼程冷却中"}
+            if dest:
+                via = self._find_via(p.city, dest)
+                if not via:
+                    return {"ok": False, "desc": f"无法通过2程到达{dest}"}
+            else:
+                two_step = self._two_step_destinations(p.city)
+                if not two_step:
+                    return {"ok": False, "desc": "无有效两程路线"}
+                via, dest = random.choice(two_step)
+            if not dest:
+                return {"ok": False, "desc": "无有效两程路线"}
+            old_city = p.city
+            p.city = dest
+            p.next_move_round = round_n + 2
+            p.rush_cooldown_round = round_n + 3
+            self.pending_move = None
+            self._update_region(p)
+            self._emit({"type": "move", "desc": f"{p.name}日夜兼程，从{old_city}经{via}抵达{dest}"})
+            return {"ok": True, "city": dest, "action": "rush", "via": via}
+
+        # 普通移动
+        if dest not in CITY_CONNECTIONS.get(p.city, []):
+            return {"ok": False, "desc": f"无法从{p.city}直接到达{dest}"}
         old_city = p.city
         p.city = dest
-        round_n = getattr(self, "engine", None) and self.engine.round or 0
         p.next_move_round = round_n + 2
         self.pending_move = None
         self._update_region(p)
         self._emit({"type": "move", "desc": f"{p.name}从{old_city}出发，抵达{dest}"})
-        return {"ok": True, "city": dest}
+        return {"ok": True, "city": dest, "action": "move"}
 
     # ---- 天下第一武道会（每30回合） ----
 
@@ -740,6 +842,55 @@ class World:
                     self.rel[champion.id][c.id] = max(-100, self.rel[champion.id].get(c.id, 0) - 10)
             self._emit({"type": "tournament", "desc": f"天下第一武道会决赛！{champion.name}获得「天下第一人」称号！武力+10，众人对其好感-10"})
             self._check_titles()
+
+    # ---- 华山论剑（第100回合，全员淘汰赛，决出最后一人） ----
+
+    def _fight_to_death(self, a, b):
+        """两人战斗，败者死亡，返回胜者"""
+        winner, loser = (a, b) if a.w >= b.w else (b, a)
+        loser.alive = False
+        return winner
+
+    def huashan_battle(self):
+        if not getattr(self, "engine", None) or self.engine.round != 100:
+            return
+        alive_chars = self.alive()
+        if len(alive_chars) < 2:
+            self.game_over = True
+            return
+        self._emit({"type": "wuxia", "desc": "第100回合！华山论剑开幕！群雄逐鹿，决出天下第一！"})
+        round_num = 1
+        while True:
+            alive_chars = self.alive()
+            if len(alive_chars) <= 1:
+                break
+            random.shuffle(alive_chars)
+            pairs = []
+            for i in range(0, len(alive_chars) - 1, 2):
+                pairs.append((alive_chars[i], alive_chars[i + 1]))
+            # 轮空：最后一人（奇数人数时）
+            advanced = []
+            if len(alive_chars) % 2 == 1:
+                bye = alive_chars[-1]
+                advanced.append(bye)
+                self._emit({"type": "wuxia", "desc": f"华山论剑第{round_num}轮：{bye.name}轮空晋级"})
+            for a, b in pairs:
+                winner = self._fight_to_death(a, b)
+                advanced.append(winner)
+                self._emit({"type": "combat", "desc": f"华山论剑第{round_num}轮：{a.name} vs {b.name}，{winner.name}胜出，败者身亡"})
+            round_num += 1
+        champion = self.alive()
+        if champion:
+            c = champion[0]
+            c.title = "华山论剑天下第一"
+            c.titles.append("华山论剑天下第一")
+            c.bonus_w += 20
+            for ch in self.characters.values():
+                if ch.id != c.id:
+                    self.rel[c.id][ch.id] = max(-100, self.rel[c.id].get(ch.id, 0) - 10)
+                    self.rel[ch.id][c.id] = max(-100, self.rel[ch.id].get(c.id, 0) - 10)
+            self._emit({"type": "title", "desc": f"华山论剑最终胜者：{c.name}！获得称号「华山论剑天下第一」，武力+20！"})
+        self.game_over = True
 
 
 world = World()

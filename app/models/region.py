@@ -47,10 +47,18 @@ INNER_RING = [
     ("襄阳", "长安"),
 ]
 
-# 洛阳、开封嵌入环内
+# 洛阳、开封嵌入环内（东南关隘应天府↔开封，西北关隘长安↔洛阳）
 INNER_CITY_CONNECTIONS = {
-    "洛阳": ["长安", "应天府"],
-    "开封": ["应天府", "襄阳"],
+    "洛阳": ["长安", "燕京", "开封"],
+    "开封": ["应天府", "襄阳", "洛阳"],
+}
+
+# 江南、塞北、西域、东海内部互相连通（3城全连接）
+MINOR_REGION_CONNECTIONS = {
+    "江南": [("苏州", "杭州"), ("苏州", "扬州"), ("杭州", "扬州")],
+    "塞北": [("凉州", "朔方"), ("凉州", "云中"), ("朔方", "云中")],
+    "西域": [("敦煌", "龟兹"), ("敦煌", "于阗"), ("龟兹", "于阗")],
+    "东海": [("泉州", "宁波"), ("泉州", "登州"), ("宁波", "登州")],
 }
 
 # 合并所有连接（双向）
@@ -67,8 +75,14 @@ def _build_connections():
         conn.setdefault(b, []).append(a)
     for city, neighbors in INNER_CITY_CONNECTIONS.items():
         for n in neighbors:
-            conn.setdefault(city, []).append(n)
-            conn.setdefault(n, []).append(city)
+            if n not in conn.get(city, []):
+                conn.setdefault(city, []).append(n)
+                conn.setdefault(n, []).append(city)
+    for _region, pairs in MINOR_REGION_CONNECTIONS.items():
+        for a, b in pairs:
+            if b not in conn.get(a, []):
+                conn.setdefault(a, []).append(b)
+                conn.setdefault(b, []).append(a)
     return conn
 
 CITY_CONNECTIONS = _build_connections()
