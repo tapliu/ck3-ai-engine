@@ -186,6 +186,17 @@ class World:
         desc = templ.format(name=c.name)
         self._emit({"type": "wuxia", "desc": desc})
 
+    def _grant_treasure(self, char, t):
+        """授予宝物，同类别旧宝物被替换（移除旧加成，添加新加成）"""
+        old = next((x for x in char.treasures if x["type"] == t["type"]), None)
+        if old:
+            for k in ("l", "w", "i", "p"):
+                setattr(char, f"bonus_{k}", getattr(char, f"bonus_{k}") - old.get(k, 0))
+            char.treasures.remove(old)
+        for k in ("l", "w", "i", "p"):
+            setattr(char, f"bonus_{k}", getattr(char, f"bonus_{k}") + t.get(k, 0))
+        char.treasures.append(t)
+
     def random_treasure_event(self):
         if not TREASURES or not self.player_char:
             return
@@ -194,13 +205,8 @@ class World:
             return
         t = random.choice(available)
         self.used_treasures.add(t["id"])
-        self.player_char.bonus_l += t.get("l", 0)
-        self.player_char.bonus_w += t.get("w", 0)
-        self.player_char.bonus_i += t.get("i", 0)
-        self.player_char.bonus_p += t.get("p", 0)
-        self.player_char.treasures.append(t)
-        tag = t["type"]
-        self._emit({"type": "treasure", "desc": f"{self.player_char.name}奇遇获得【{t['name']}】（{tag}）：{t['desc']}"})
+        self._grant_treasure(self.player_char, t)
+        self._emit({"type": "treasure", "desc": f"{self.player_char.name}奇遇获得【{t['name']}】（{t['type']}）：{t['desc']}"})
 
     def character_treasure_event(self):
         if not TREASURES:
@@ -214,11 +220,7 @@ class World:
         c = random.choice(chars)
         t = random.choice(available)
         self.used_treasures.add(t["id"])
-        c.bonus_l += t.get("l", 0)
-        c.bonus_w += t.get("w", 0)
-        c.bonus_i += t.get("i", 0)
-        c.bonus_p += t.get("p", 0)
-        c.treasures.append(t)
+        self._grant_treasure(c, t)
         self._emit({"type": "treasure", "desc": f"{c.name}在江湖游历中获得【{t['name']}】"})
 
     # ---- 任务系统 ----
