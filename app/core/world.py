@@ -35,6 +35,14 @@ CHAR_TASKS = [
     {"name":"调解纠纷","desc":"处理江湖帮派之间的纠纷","diff":45,"stat":"i","tag":"char"},
 ]
 
+DEADLY_TASKS = [
+    {"name":"独闯龙潭","desc":"深入龙潭虎穴，九死一生","diff":70,"stat":"w","tag":"deadly"},
+    {"name":"刺杀魔头","desc":"暗杀江湖第一魔头","diff":75,"stat":"l","tag":"deadly"},
+    {"name":"破解绝阵","desc":"破解上古绝命阵法，稍有不慎万劫不复","diff":65,"stat":"p","tag":"deadly"},
+    {"name":"单挑群雄","desc":"以一己之力挑战江湖群雄","diff":70,"stat":"w","tag":"deadly"},
+    {"name":"盗取至宝","desc":"从戒备森严之地盗取至宝","diff":65,"stat":"l","tag":"deadly"},
+]
+
 COOP_TASKS = [
     {"name":"联手对敌","desc":"与{target}联手对抗外敌","diff":50,"stat":"w","tag":"coop"},
     {"name":"共商大计","desc":"与{target}共同谋划大事","diff":45,"stat":"i","tag":"coop"},
@@ -65,6 +73,7 @@ class World:
         self.task_next_id = 0
         self.pending_decay = None
         self.tournament = None
+        self.game_over = False
 
         for d in DATA:
             self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""), d.get("age", 20))
@@ -138,7 +147,8 @@ class World:
             "round": getattr(self, "engine", None) and self.engine.round or 0,
             "player": self.player_char.to_dict() if self.player_char else None,
             "triggers": self.triggers,
-            "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0)} for c in self.alive()]
+            "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0)} for c in self.alive()],
+            "game_over": self.game_over,
         }
 
     def set_player(self, name):
@@ -228,6 +238,9 @@ class World:
     def generate_tasks(self):
         self.pending_tasks = []
         pool = NON_CHAR_TASKS + CHAR_TASKS + COOP_TASKS
+        # 概率出现极难任务
+        if random.random() < 0.3:
+            pool = pool + DEADLY_TASKS
         count = random.randint(1, 2)
         selected = random.sample(pool, min(count, len(pool)))
         for t in selected:
@@ -265,6 +278,7 @@ class World:
                 "type": t["type"],
                 "target": t.get("target", None),
                 "difficulty": t["difficulty"],
+                "deadly": t["type"] == "deadly",
                 "base_chance": int(base_chance),
                 "focus_chance": int(focus_chance),
                 "scheme_bonus": scheme_bonus,
@@ -303,7 +317,9 @@ class World:
                     desc_parts.append(f"成功！与{target.name}好感度+{change}，侠义值+{xia_yi_gain}")
                     self._emit({"type": "task_success", "desc": "".join(desc_parts)})
                     return {"success": True, "desc": "".join(desc_parts), "rel_change": change, "xia_yi": xia_yi_gain}
-            reward = self._grant_task_reward()
+            is_deadly = task["type"] == "deadly"
+            reward = self._grant_task_reward(deadly=is_deadly)
+            xia_yi_gain = random.randint(3, 6) if is_deadly else xia_yi_gain
             self.player_char.xia_yi += xia_yi_gain
             desc_parts.append(f"成功！{reward['desc']}，侠义值+{xia_yi_gain}")
             self._emit({"type": "task_success", "desc": "".join(desc_parts)})
@@ -318,15 +334,23 @@ class World:
                     desc_parts.append(f"失败！与{target.name}好感度{change}")
                     self._emit({"type": "task_fail", "desc": "".join(desc_parts)})
                     return {"success": False, "desc": "".join(desc_parts), "rel_change": change}
+            if task["type"] == "deadly":
+                death_chance = max(0.1, min(0.5, (task["difficulty"] - stat_val) / 100))
+                if random.random() < death_chance:
+                    self.player_char.alive = False
+                    self.game_over = True
+                    desc_parts.append(f"失败！{self.player_char.name}在任务中不幸身亡！")
+                    self._emit({"type": "death", "desc": "".join(desc_parts)})
+                    return {"success": False, "desc": "".join(desc_parts), "game_over": True}
             penalty = self._apply_task_penalty()
             desc_parts.append(f"失败！{penalty['desc']}")
             self._emit({"type": "task_fail", "desc": "".join(desc_parts)})
             return {"success": False, "desc": "".join(desc_parts), "penalty": penalty}
 
-    def _grant_task_reward(self):
+    def _grant_task_reward(self, deadly=False):
         stats = ["bonus_l", "bonus_w", "bonus_i", "bonus_p"]
         stat = random.choice(stats)
-        boost = random.randint(1, 3)
+        boost = random.randint(3, 5) if deadly else random.randint(1, 3)
         setattr(self.player_char, stat, getattr(self.player_char, stat) + boost)
         label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[stat]
         return {"type": "stat", "stat": stat, "value": boost, "desc": f"{label}+{boost}"}
@@ -364,10 +388,18 @@ class World:
             winner, loser = b, a
         loser.bonus_w = max(0, loser.bonus_w - random.randint(1, 3))
         winner.bonus_w += random.randint(0, 2)
-        self._emit({
-            "type": "combat",
-            "desc": f"【{region}】{winner.name}与{loser.name}不和激化，爆发战斗！{winner.name}胜出，{loser.name}武力受损"
-        })
+        # 死亡判定：武力差距越大越可能死亡
+        gap = winner.w - loser.w
+        death_chance = max(0.05, min(0.5, gap / 100))
+        desc = f"【{region}】{winner.name}与{loser.name}不和激化，爆发战斗！{winner.name}胜出，{loser.name}武力受损"
+        if random.random() < death_chance:
+            loser.alive = False
+            desc += f"，{loser.name}伤重身亡！"
+            if loser == self.player_char:
+                self.game_over = True
+            self._emit({"type": "death", "desc": desc})
+            return
+        self._emit({"type": "combat", "desc": desc})
 
     # ---- 和睦（引起任务共享） ----
 

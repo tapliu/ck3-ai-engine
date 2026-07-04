@@ -56,6 +56,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .event-task_fail { color:#f44336; }
 .event-decay { color:#ff9800; }
 .event-tournament { color:#e040fb; }
+.event-death { color:#000; font-weight:bold; background:#f44336; padding:0.1rem 0.3rem; border-radius:3px; }
 .xia-yi { color:#ffd700; font-size:0.85rem; }
 .tournament-group { background:#16213e; border:1px solid #533483; border-radius:8px; padding:0.8rem; margin-bottom:0.8rem; }
 .tournament-group h3 { color:#e040fb; font-size:0.95rem; margin-bottom:0.3rem; }
@@ -86,6 +87,13 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .task-btn-scheme:hover { background:#6b4099; }
 .task-btn-focus { background:#2d6a4f; }
 .task-btn-focus:hover { background:#40916c; }
+.task-card-deadly { border-color:#f44336; background:linear-gradient(135deg,#2e1a1a,#16213e); box-shadow:0 0 12px rgba(244,67,54,0.3); }
+.task-deadly-icon { color:#f44336; font-weight:bold; margin-left:0.3rem; }
+.gameover-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); justify-content:center; align-items:center; z-index:999; }
+.gameover-overlay.active { display:flex; }
+.gameover-box { text-align:center; padding:3rem; }
+.gameover-box h1 { font-size:3rem; color:#f44336; margin-bottom:1rem; }
+.gameover-box p { color:#a0a0c0; font-size:1.2rem; margin-bottom:2rem; }
 .task-result { position:fixed; top:1rem; left:50%; transform:translateX(-50%); padding:0.8rem 1.5rem; border-radius:8px; z-index:200; font-size:0.95rem; text-align:center; display:none; max-width:500px; }
 .task-result-ok { background:#1b4332; border:1px solid #4caf50; color:#a5d6a7; }
 .task-result-fail { background:#3e1a1a; border:1px solid #f44336; color:#ef9a9a; }
@@ -182,6 +190,15 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 
 <div id="taskResultBanner" class="task-result"></div>
 
+<!-- 游戏结束 -->
+<div class="gameover-overlay" id="gameoverOverlay">
+  <div class="gameover-box">
+    <h1>逝</h1>
+    <p>你的江湖之旅到此结束…</p>
+    <button onclick="location.reload()">重新开始</button>
+  </div>
+</div>
+
 <!-- 不进则退弹窗 -->
 <div class="overlay" id="decayOverlay">
   <div class="modal" style="max-width:420px;">
@@ -246,7 +263,7 @@ async function fetchEvents() {
     const r = await fetch('/api/events');
     const data = await r.json();
     const log = document.getElementById('eventLog');
-    const TYPE_CLASS = {'treasure':'event-treasure','wuxia':'event-wuxia','combat':'event-combat','cooperation':'event-cooperation','task_success':'event-task_success','task_fail':'event-task_fail','decay':'event-decay','tournament':'event-tournament'};
+    const TYPE_CLASS = {'treasure':'event-treasure','wuxia':'event-wuxia','combat':'event-combat','cooperation':'event-cooperation','task_success':'event-task_success','task_fail':'event-task_fail','decay':'event-decay','tournament':'event-tournament','death':'event-death'};
     log.innerHTML = data.map(e => {
       const cls = TYPE_CLASS[e.type]||'';
       return `<div class="event-item ${cls}"><span class="event-round">[${e.round||'?'}]</span>${e.desc}</div>`;
@@ -256,6 +273,10 @@ async function fetchEvents() {
 
 function render(data) {
   document.getElementById('roundDisplay').textContent = '回合: ' + (data.round||0);
+  if (data.game_over) {
+    document.getElementById('gameoverOverlay').classList.add('active');
+    document.getElementById('tickBtn').disabled = true;
+  }
 
   // 玩家横幅
   const banner = document.getElementById('playerBanner');
@@ -409,12 +430,14 @@ function showTasks(tasks) {
   document.getElementById('tickBtn').disabled = true;
   const list = document.getElementById('taskList');
   list.innerHTML = tasks.map(t => {
-    const TYPE_LABELS = {non_char:'非人物类', char:'人物类', coop:'合作任务'};
+    const TYPE_LABELS = {non_char:'非人物类', char:'人物类', coop:'合作任务', deadly:'极难任务'};
     const typeLabel = TYPE_LABELS[t.type]||t.type;
     const chanceLabel = t.scheme_bonus > 0 ? `基础 ${t.base_chance}% · 谋略 ${t.chance_with_scheme}% · 全力 ${t.focus_chance}%` : `基础 ${t.base_chance}% · 全力 ${t.focus_chance}%`;
     const targetHtml = t.target ? `<div style="color:#4ecdc4;font-size:0.85rem;margin:0.2rem 0;">合作对象: ${t.target}</div>` : '';
-    return `<div class="task-card" id="taskCard${t.id}">
-      <div class="task-name">${t.name} <span style="font-size:0.8rem;color:#888;">[${typeLabel}]</span></div>
+    const deadlyIcon = t.deadly ? `<span class="task-deadly-icon">☠ 极难</span>` : '';
+    const deadlyCls = t.deadly ? ' task-card-deadly' : '';
+    return `<div class="task-card${deadlyCls}" id="taskCard${t.id}">
+      <div class="task-name">${t.name} ${deadlyIcon}<span style="font-size:0.8rem;color:#888;">[${typeLabel}]</span></div>
       <div class="task-desc">${t.desc}</div>
       ${targetHtml}
       <div class="task-chance">难度 ${t.difficulty} · ${chanceLabel}</div>
