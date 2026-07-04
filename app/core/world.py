@@ -211,7 +211,7 @@ class World:
             "round": getattr(self, "engine", None) and self.engine.round or 0,
             "player": self.player_char.to_dict() if self.player_char else None,
             "triggers": self.triggers,
-            "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0)} for c in self.alive()],
+            "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0)} for c in self.characters.values()],
             "game_over": self.game_over,
             "settlement": self.settlement() if self.game_over else None,
             "cities": cities_info,
