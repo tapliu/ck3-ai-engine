@@ -70,6 +70,10 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .decay-card .label { font-size:1.1rem; font-weight:bold; color:#ff9800; }
 .decay-card .value { font-size:1.5rem; color:#eee; margin:0.3rem 0; }
 .decay-card .note { font-size:0.8rem; color:#888; }
+.char-portrait { width:80px; height:80px; border-radius:50%; object-fit:cover; border:2px solid #e94560; cursor:pointer; }
+.char-portrait-sm { width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #0f3460; cursor:pointer; }
+.char-portrait-sm:hover { border-color:#e94560; }
+.fullbody-img { max-width:100%; max-height:70vh; display:block; margin:0 auto; border-radius:8px; }
 
 .task-card { background:#16213e; border:2px solid #0f3460; border-radius:8px; padding:1rem; margin-bottom:1rem; }
 .task-card .task-name { font-size:1.1rem; font-weight:bold; color:#e94560; }
@@ -194,6 +198,14 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
   </div>
 </div>
 
+<!-- 全身像弹窗 -->
+<div class="overlay" id="fullbodyOverlay">
+  <div class="modal" style="max-width:500px;text-align:center;">
+    <img id="fullbodyImg" class="fullbody-img" src="">
+    <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('fullbodyOverlay').classList.remove('active')">关闭</button></div>
+  </div>
+</div>
+
 <!-- 宝物详情弹窗 -->
 <div class="overlay" id="treasureOverlay">
   <div class="modal" style="max-width:420px;">
@@ -254,7 +266,7 @@ function render(data) {
     if (p.spouse) rels.push('配偶:'+p.spouse);
     (p.sworn_brothers||[]).forEach(b => rels.push('义:'+b));
     banner.innerHTML = `
-      <div class="player-avatar">${p.name[0]}</div>
+      <img class="char-portrait" src="${portraitUrl(p.id)}" onclick="showFullBody(${p.id})" title="点击查看全身像">
       <div class="player-info">
         <h2>${p.name}</h2>
         <div class="sub">${p.gender} · ${p.age}岁 · ${p.region} · 评分 ${p.score}</div>
@@ -290,7 +302,10 @@ function render(data) {
     (c.sworn_brothers||[]).forEach(b => rels.push('义:'+b));
     return `
     <div class="card">
-      <div class="name">${c.name}<span class="tag">${c.region}</span></div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;">
+        <img class="char-portrait-sm" src="${portraitUrl(c.id)}" onclick="showFullBody(${c.id})" title="点击查看全身像">
+        <div><div class="name">${c.name}<span class="tag">${c.region}</span></div></div>
+      </div>
       <div class="desc">${c.desc||''}</div>
       <div class="stats">
         ${Object.entries(STAT_LABELS).map(([k,v]) => {
@@ -537,6 +552,14 @@ async function showTournament() {
 
 function closeTournament() {
   document.getElementById('tournamentOverlay').classList.remove('active');
+}
+
+function portraitUrl(id) { return '/api/images/portrait/' + encodeURIComponent('01 ('+(id+1)+').png'); }
+function fullBodyUrl(id) { return '/api/images/full-body/' + encodeURIComponent('01 ('+(id+1)+').png'); }
+
+function showFullBody(id) {
+  document.getElementById('fullbodyImg').src = fullBodyUrl(id);
+  document.getElementById('fullbodyOverlay').classList.add('active');
 }
 
 loadSelect();

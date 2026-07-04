@@ -11,6 +11,8 @@ uvicorn app.main:app --reload
 
 浏览器打开 `http://localhost:8000`
 
+> 头像和全身像 PNG 图片放在 `data/Images/portrait/` 和 `data/Images/full-body/` 目录下，自动挂载到 `/api/images/`。
+
 ## 游戏玩法
 
 1. **选人** — 开局从 3 个随机角色中选择你的侠客
@@ -64,7 +66,10 @@ uvicorn app.main:app --reload
 │       └── event_api.py     # 事件 API
 ├── data/
 │   ├── chars.json           # 角色数据（35人）
-│   └── treasures.json       # 宝物库（20件）
+│   ├── treasures.json       # 宝物库（20件）
+│   └── Images/
+│       ├── portrait/        # 角色头像（35张 PNG）
+│       └── full-body/       # 角色全身像（35张 PNG）
 ├── frontend/
 │   └── index.html           # 前端界面（含所有弹窗/排序）
 ├── requirements.txt

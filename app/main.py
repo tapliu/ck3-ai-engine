@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from app.core.world import world
 from app.core.engine import Engine
@@ -16,6 +17,10 @@ world.engine = engine
 app.include_router(world_router)
 app.include_router(npc_router)
 app.include_router(event_router)
+
+images_path = os.path.join(os.path.dirname(__file__), "..", "data", "Images")
+if os.path.isdir(images_path):
+    app.mount("/api/images", StaticFiles(directory=images_path), name="images")
 
 
 @app.get("/")
