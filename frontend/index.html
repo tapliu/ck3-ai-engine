@@ -35,6 +35,9 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .card { background:#16213e; border-radius:8px; padding:1rem; border:1px solid #0f3460; }
 .card .name { font-size:1.1rem; font-weight:bold; color:#e94560; }
 .card .tag { font-size:0.8rem; color:#888; margin-left:0.3rem; }
+.card .city { font-size:0.8rem; color:#a0a0c0; display:inline-block; margin-left:0.3rem; }
+.capital-badge { background:#ffd700; color:#1a1a2e; font-size:0.7rem; font-weight:bold; padding:0.1rem 0.4rem; border-radius:3px; margin-left:0.3rem; }
+.center-badge { background:#e040fb; color:#fff; font-size:0.7rem; padding:0.1rem 0.3rem; border-radius:3px; margin-left:0.2rem; }
 .card .stats { display:grid; grid-template-columns:1fr 1fr; gap:0.2rem 1rem; margin:0.4rem 0; }
 .card .stat { font-size:0.85rem; }
 .card .stat span { color:#a0a0c0; }
@@ -90,6 +93,14 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .task-card-deadly { border-color:#f44336; background:linear-gradient(135deg,#2e1a1a,#16213e); box-shadow:0 0 12px rgba(244,67,54,0.3); }
 .task-deadly-icon { color:#f44336; font-weight:bold; margin-left:0.3rem; }
 .gameover-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); justify-content:center; align-items:flex-start; z-index:999; overflow-y:auto; padding:2rem; }
+.citymap-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.citymap-region { background:#0f3460; border-radius:6px; padding:0.8rem; }
+.citymap-region h3 { color:#e94560; font-size:0.95rem; margin-bottom:0.5rem; text-align:center; border-bottom:1px solid #1a1a3e; padding-bottom:0.3rem; }
+.citymap-city { display:flex; align-items:center; gap:0.4rem; padding:0.3rem 0.5rem; border-bottom:1px solid #1a1a3e; font-size:0.85rem; }
+.citymap-city:last-child { border-bottom:none; }
+.citymap-city .cname { color:#eee; font-weight:bold; }
+.citymap-city .cpop { color:#888; font-size:0.75rem; margin-left:auto; }
+.citymap-city .cconn { color:#4ecdc4; font-size:0.75rem; margin-left:0.5rem; }
 .gameover-overlay.active { display:flex; }
 .gameover-box { max-width:720px; width:100%; margin:0 auto; }
 .gameover-box h1 { font-size:2.5rem; color:#e94560; margin-bottom:0.3rem; text-align:center; }
@@ -160,6 +171,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
     <button id="tickBtn" onclick="tick()" disabled>推进至下一回合</button>
     <button id="autoBtn" onclick="toggleAuto()" style="background:#2d6a4f;">托管</button>
     <button id="tournamentBtn" onclick="showTournament()" style="display:none;background:#533483;">天下第一武道会</button>
+    <button onclick="showCityMap()" style="background:#0f3460;">江山舆图</button>
     <button onclick="fetchWorld()">刷新</button>
   </div>
 </div>
@@ -221,6 +233,15 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <div id="taskResultBanner" class="task-result"></div>
 
 <!-- 游戏结束 -->
+<!-- 江山舆图 -->
+<div class="overlay" id="cityMapOverlay">
+  <div class="modal" style="max-width:800px;">
+    <h2>江山舆图</h2>
+    <div id="cityMapContent"></div>
+    <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('cityMapOverlay').classList.remove('active')">关闭</button></div>
+  </div>
+</div>
+
 <div class="gameover-overlay" id="gameoverOverlay">
   <div class="gameover-box">
     <div id="settlementContent"></div>
@@ -268,7 +289,8 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 async function fetchWorld() {
   try {
     const r = await fetch('/api/world');
-    render(await r.json());
+    window._lastData = await r.json();
+    render(window._lastData);
   } catch(e) { console.error(e); }
 }
 
@@ -352,6 +374,7 @@ function renderSettlement(s) {
 }
 
 function render(data) {
+  window._cities = data.cities || {};
   document.getElementById('roundDisplay').textContent = '回合: ' + (data.round||0);
   if (data.game_over) {
     document.getElementById('gameoverOverlay').classList.add('active');
@@ -375,7 +398,7 @@ function render(data) {
       <img class="char-portrait" src="${portraitUrl(p.id)}" onclick="showFullBody(${p.id})" title="点击查看全身像">
       <div class="player-info">
         <h2>${p.name}</h2>
-        <div class="sub">${p.gender} · ${p.age}岁 · ${p.city||p.region} · 评分 ${p.score}</div>
+        <div class="sub">${p.gender} · ${p.age}岁 · ${p.city||p.region}${p.city&&window._cities&&window._cities[p.city]&&window._cities[p.city].capital?'<span class="capital-badge">帝都</span>':''}${p.city&&window._cities&&window._cities[p.city]&&window._cities[p.city].regional_center?'<span class="center-badge">要冲</span>':''} · 评分 ${p.score}</div>
         <div class="sub" style="margin-top:0.2rem;">${p.desc||''}</div>
         <div class="stats">
           ${Object.entries(STAT_LABELS).map(([k,v]) => {
@@ -410,7 +433,8 @@ function render(data) {
     <div class="card">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;">
         <img class="char-portrait-sm" src="${portraitUrl(c.id)}" onclick="showFullBody(${c.id})" title="点击查看全身像">
-        <div><div class="name">${c.name}<span class="tag">${c.city||c.region}</span></div></div>
+        <div><div class="name">${c.name}<span class="tag">${c.region}</span></div>
+        <div class="city">${c.city||''}${c.city&&window._cities&&window._cities[c.city]&&window._cities[c.city].capital?'<span class="capital-badge">帝都</span>':''}${c.city&&window._cities&&window._cities[c.city]&&window._cities[c.city].regional_center?'<span class="center-badge">要冲</span>':''}</div></div>
       </div>
       <div class="desc">${c.desc||''}</div>
       <div class="stats">
@@ -753,6 +777,37 @@ function fullBodyUrl(id) { return '/api/images/full-body/' + encodeURIComponent(
 function showFullBody(id) {
   document.getElementById('fullbodyImg').src = fullBodyUrl(id);
   document.getElementById('fullbodyOverlay').classList.add('active');
+}
+
+function showCityMap() {
+  const data = window._lastData;
+  if (!data || !data.cities) return;
+  const byRegion = {};
+  for (const [city, info] of Object.entries(data.cities)) {
+    const r = info.region;
+    if (!byRegion[r]) byRegion[r] = [];
+    byRegion[r].push(city);
+  }
+  const REGION_ORDER = ['中原','东海','江南','西域','塞北'];
+  let html = '<div class="citymap-grid">';
+  for (const r of REGION_ORDER) {
+    if (!byRegion[r]) continue;
+    html += `<div class="citymap-region"><h3>${r}</h3>`;
+    for (const city of byRegion[r]) {
+      const info = data.cities[city];
+      const pop = info.population||[];
+      const badges = [];
+      if (info.capital) badges.push('帝都');
+      if (info.regional_center) badges.push('要冲');
+      const badgeHtml = badges.length ? ' <span style="color:#ffd700;font-size:0.7rem;">['+badges.join('+')+']</span>' : '';
+      const connHtml = (info.connections||[]).length ? ' → <span class="cconn">' + info.connections.join(', ')+'</span>' : '';
+      html += `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span class="cpop">${pop.length}人</span>${connHtml}</div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  document.getElementById('cityMapContent').innerHTML = html;
+  document.getElementById('cityMapOverlay').classList.add('active');
 }
 
 loadSelect();

@@ -2,7 +2,7 @@ import os
 import random
 from collections import defaultdict
 from app.models.character import Character
-from app.models.region import CITIES, ALL_CITIES
+from app.models.region import CITIES, ALL_CITIES, CAPITAL, REGIONAL_CENTERS, REGIONAL_CENTER_GATES, CITY_CONNECTIONS, get_city_info
 
 STAT_FIELDS = ["base_l", "base_w", "base_i", "base_p"]
 STAT_LABELS = {"base_l":"机敏","base_w":"武力","base_i":"魅力","base_p":"智谋"}
@@ -201,11 +201,11 @@ class World:
 
     def export(self):
         rel = self.rel[self.player_char.id] if self.player_char and self.player_char.id in self.rel else {}
-        cities_info = {}
-        for region, clist in CITIES.items():
-            for city in clist:
-                pop = [c.name for c in self.alive() if c.city == city]
-                cities_info[city] = {"region": region, "population": pop, "count": len(pop)}
+        cities_info = get_city_info()
+        for city in cities_info:
+            pop = [c.name for c in self.alive() if c.city == city]
+            cities_info[city]["population"] = pop
+            cities_info[city]["count"] = len(pop)
         return {
             "round": getattr(self, "engine", None) and self.engine.round or 0,
             "player": self.player_char.to_dict() if self.player_char else None,
