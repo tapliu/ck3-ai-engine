@@ -27,9 +27,17 @@ class Character:
 
     def to_dict(self):
         return {
+            "id": self.id,
             "name": self.name,
             "gender": self.gender,
             "region": self.region,
-            "score": self.score(),
-            "alive": self.alive
+            "dynasty": self.dynasty,
+            "spouse": self.spouse,
+            "l": self.l,
+            "w": self.w,
+            "i": self.i,
+            "p": self.p,
+            "score": round(self.score(), 2),
+            "alive": self.alive,
+            "memory": self.memory[-5:],
         }

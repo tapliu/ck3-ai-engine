@@ -11,6 +11,7 @@ class Engine:
 
         self.world = world
         self.bus = EventBus()
+        self.round = 0
 
         self.llm = LLM()
         self.memory = Memory()
@@ -22,7 +23,8 @@ class Engine:
 
     def tick(self):
 
-        # 1 AI决策
+        self.round += 1
+
         for a in self.agents:
 
             if not a.npc.alive:
@@ -32,8 +34,13 @@ class Engine:
 
             self.execute(a.npc, decision)
 
-        # 2 事件结算
         self.resolve()
+
+        self.bus.emit({
+            "type": "round",
+            "round": self.round,
+            "desc": f"第{self.round}回合结束"
+        })
 
     def execute(self, npc, d):
 

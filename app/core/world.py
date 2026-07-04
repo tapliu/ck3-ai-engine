@@ -42,6 +42,7 @@ class World:
 
     def export(self):
         return {
+            "round": getattr(self, "engine", None) and self.engine.round or 0,
             "characters":[c.to_dict() for c in self.alive()]
         }
 
