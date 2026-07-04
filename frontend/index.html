@@ -159,7 +159,11 @@ function render(data) {
         <div class="sub">${p.gender} · ${p.age}岁 · ${p.region} · 评分 ${p.score}</div>
         <div class="sub" style="margin-top:0.2rem;">${p.desc||''}</div>
         <div class="stats">
-          ${Object.entries(labels).map(([k,v]) => `<span><span class="lbl">${v}</span> <span class="val">${p[k]}</span></span>`).join('')}
+          ${Object.entries(labels).map(([k,v]) => {
+            const b = p['base_'+k], bonus = p['bonus_'+k]||0;
+            const display = bonus ? \`\${b+bonus} (\${b}+\${bonus})\` : b;
+            return \`<span><span class="lbl">\${v}</span> <span class="val">\${display}</span></span>\`;
+          }).join('')}
         </div>
         <div class="rels">${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
         <div class="rels" style="margin-top:0.3rem;">${(p.treasures||[]).map(t => `<span class="treasure">${t}</span>`).join('')}</div>
@@ -181,7 +185,11 @@ function render(data) {
       <div class="name">${c.name}<span class="tag">${c.region}</span></div>
       <div class="desc">${c.desc||''}</div>
       <div class="stats">
-        ${Object.entries(labels).map(([k,v]) => `<div class="stat"><span>${v}</span> <span class="val">${c[k]}</span></div>`).join('')}
+        ${Object.entries(labels).map(([k,v]) => {
+          const b = c['base_'+k], bonus = c['bonus_'+k]||0;
+          const display = bonus ? `${b+bonus} (${b}+${bonus})` : b;
+          return `<div class="stat"><span>${v}</span> <span class="val">${display}</span></div>`;
+        }).join('')}
         <div class="stat"><span>年龄</span> <span class="val">${c.age}</span></div>
         <div class="stat"><span>评分</span> <span class="val">${c.score}</span></div>
       </div>
