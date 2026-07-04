@@ -1,5 +1,3 @@
-# app/core/engine.py
-
 from app.core.event_bus import EventBus
 from app.ai.agent import Agent
 from app.ai.llm import LLM
@@ -26,12 +24,9 @@ class Engine:
         self.round += 1
 
         for a in self.agents:
-
             if not a.npc.alive:
                 continue
-
             decision = a.decide(self.world)
-
             self.execute(a.npc, decision)
 
         self.resolve()
@@ -41,6 +36,8 @@ class Engine:
             "round": self.round,
             "desc": f"第{self.round}回合结束"
         })
+
+        self.world.do_tick_events()
 
     def execute(self, npc, d):
 

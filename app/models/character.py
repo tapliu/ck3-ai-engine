@@ -21,6 +21,7 @@ class Character:
         self.spouse = None
         self.master = None
         self.sworn_brothers = []
+        self.treasures = []
 
         self.memory = []
 
@@ -45,5 +46,6 @@ class Character:
             "spouse": self.spouse,
             "master": self.master,
             "sworn_brothers": self.sworn_brothers,
+            "treasures": self.treasures,
             "memory": self.memory[-5:],
         }

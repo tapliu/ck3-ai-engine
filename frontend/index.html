@@ -14,29 +14,47 @@ h1 { text-align:center; color:#e94560; margin-bottom:1rem; }
 button { padding:0.5rem 1.5rem; background:#e94560; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:1rem; }
 button:hover { background:#c73650; }
 button:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* 玩家横幅 */
+.player-banner { background:linear-gradient(135deg,#16213e,#1a1a3e); border:2px solid #e94560; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; display:grid; grid-template-columns:auto 1fr; gap:1.5rem; align-items:center; box-shadow:0 0 16px rgba(233,69,96,0.2); }
+.player-avatar { width:80px; height:80px; border-radius:50%; background:#e94560; display:flex; align-items:center; justify-content:center; font-size:2.5rem; font-weight:bold; color:#fff; }
+.player-info h2 { color:#e94560; margin-bottom:0.3rem; }
+.player-info .sub { color:#a0a0c0; font-size:0.9rem; }
+.player-info .stats { display:flex; gap:1.5rem; margin-top:0.5rem; flex-wrap:wrap; }
+.player-info .stats span { font-size:0.9rem; }
+.player-info .stats .val { color:#eee; font-weight:bold; }
+.player-info .stats .lbl { color:#888; }
+.player-info .rels { margin-top:0.5rem; display:flex; gap:0.3rem; flex-wrap:wrap; }
+.badge { display:inline-block; background:#0f3460; border-radius:4px; padding:0.15rem 0.5rem; font-size:0.75rem; }
+
+/* 宝物 */
+.treasure { display:inline-block; background:#3a1a2e; border:1px solid #e94560; border-radius:4px; padding:0.15rem 0.5rem; font-size:0.75rem; margin-right:0.2rem; margin-bottom:0.2rem; color:#f0a0b0; }
+
 .layout { display:flex; gap:1.5rem; }
-.grid { flex:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
+.grid { flex:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:1rem; }
 .card { background:#16213e; border-radius:8px; padding:1rem; border:1px solid #0f3460; }
-.card.player { border-color:#e94560; box-shadow:0 0 8px rgba(233,69,96,0.3); }
-.card .name { font-size:1.2rem; font-weight:bold; color:#e94560; }
-.card .tag { font-size:0.8rem; color:#888; margin-left:0.5rem; }
-.card .stats { display:grid; grid-template-columns:1fr 1fr; gap:0.2rem 1rem; margin:0.5rem 0; }
-.card .stat { font-size:0.9rem; }
+.card .name { font-size:1.1rem; font-weight:bold; color:#e94560; }
+.card .tag { font-size:0.8rem; color:#888; margin-left:0.3rem; }
+.card .stats { display:grid; grid-template-columns:1fr 1fr; gap:0.2rem 1rem; margin:0.4rem 0; }
+.card .stat { font-size:0.85rem; }
 .card .stat span { color:#a0a0c0; }
 .card .val { color:#eee; font-weight:bold; }
 .card .alive { color:#4caf50; font-weight:bold; }
 .card .dead { color:#f44336; font-weight:bold; }
-.card .badge { display:inline-block; background:#0f3460; border-radius:4px; padding:0.1rem 0.4rem; font-size:0.75rem; margin-right:0.3rem; }
-.sidebar { width: 320px; flex-shrink:0; }
+.card .desc { color:#666; font-size:0.8rem; margin:0.3rem 0; }
+
+.sidebar { width:340px; flex-shrink:0; }
 .events { background:#16213e; border-radius:8px; padding:1rem; max-height:600px; overflow-y:auto; position:sticky; top:1rem; }
 .events h2 { margin-bottom:0.5rem; color:#e94560; font-size:1rem; }
-.event-item { padding:0.4rem 0; border-bottom:1px solid #0f3460; font-size:0.9rem; }
-.event-round { color:#e94560; font-weight:bold; margin-right:0.5rem; }
+.event-item { padding:0.35rem 0; border-bottom:1px solid #0f3460; font-size:0.85rem; }
+.event-round { color:#e94560; font-weight:bold; margin-right:0.4rem; }
+.event-treasure { color:#f0a0b0; }
+.event-wuxia { color:#80c0e0; }
 
 /* overlay */
 .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:100; }
 .overlay.active { display:flex; }
-.modal { background:#1a1a2e; border:2px solid #e94560; border-radius:12px; padding:2rem; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; }
+.modal { background:#1a1a2e; border:2px solid #e94560; border-radius:12px; padding:2rem; max-width:640px; width:90%; max-height:80vh; overflow-y:auto; }
 .modal h2 { color:#e94560; margin-bottom:1rem; text-align:center; }
 .modal .intro { text-align:center; margin-bottom:1.5rem; color:#a0a0c0; }
 .pick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
@@ -46,7 +64,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .pick-card .stat { font-size:0.85rem; color:#a0a0c0; margin:0.2rem 0; }
 .pick-card .desc { font-size:0.8rem; color:#666; margin-top:0.5rem; }
 
-@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } .pick-grid { grid-template-columns:1fr; } }
+@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } .pick-grid { grid-template-columns:1fr; } .player-banner { grid-template-columns:1fr; text-align:center; } .player-avatar { margin:0 auto; } }
 </style>
 </head>
 <body>
@@ -54,15 +72,18 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <div class="header">
   <div class="round" id="roundDisplay">回合: 0</div>
   <div class="controls">
-    <button id="tickBtn" onclick="tick()" disabled>Tick (推进一回合)</button>
+    <button id="tickBtn" onclick="tick()" disabled>Tick</button>
     <button onclick="fetchWorld()">刷新</button>
   </div>
 </div>
+
+<div id="playerBanner" style="display:none;" class="player-banner"></div>
+
 <div class="layout">
   <div id="world" class="grid"></div>
   <div class="sidebar">
     <div class="events" id="events">
-      <h2>事件日志</h2>
+      <h2>江湖日志</h2>
       <div id="eventLog"></div>
     </div>
   </div>
@@ -90,20 +111,20 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 async function fetchWorld() {
   try {
     const r = await fetch('/api/world');
-    const data = await r.json();
-    render(data);
+    render(await r.json());
   } catch(e) { console.error(e); }
 }
 
 async function tick() {
+  const btn = document.getElementById('tickBtn');
+  btn.disabled = true;
   try {
-    document.getElementById('tickBtn').disabled = true;
     await fetch('/tick', {method:'POST'});
     await fetchWorld();
     await fetchEvents();
     await checkPendingEvents();
   } catch(e) { console.error(e); }
-  document.getElementById('tickBtn').disabled = false;
+  btn.disabled = false;
 }
 
 async function fetchEvents() {
@@ -111,34 +132,61 @@ async function fetchEvents() {
     const r = await fetch('/api/events');
     const data = await r.json();
     const log = document.getElementById('eventLog');
-    log.innerHTML = data.map(e =>
-      `<div class="event-item"><span class="event-round">[${e.round||'?'}]</span>${e.desc}</div>`
-    ).join('') + log.innerHTML;
+    log.innerHTML = data.map(e => {
+      const cls = e.type==='treasure'?'event-treasure':e.type==='wuxia'?'event-wuxia':'';
+      return `<div class="event-item ${cls}"><span class="event-round">[${e.round||'?'}]</span>${e.desc}</div>`;
+    }).join('') + log.innerHTML;
   } catch(e) { console.error(e); }
 }
 
 function render(data) {
   document.getElementById('roundDisplay').textContent = '回合: ' + (data.round||0);
+
+  // 玩家横幅
+  const banner = document.getElementById('playerBanner');
+  const p = data.player;
+  if (p) {
+    banner.style.display = 'grid';
+    const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
+    const rels = [];
+    if (p.master) rels.push('师:'+p.master);
+    if (p.spouse) rels.push('配偶:'+p.spouse);
+    (p.sworn_brothers||[]).forEach(b => rels.push('义:'+b));
+    banner.innerHTML = `
+      <div class="player-avatar">${p.name[0]}</div>
+      <div class="player-info">
+        <h2>${p.name}</h2>
+        <div class="sub">${p.gender} · ${p.age}岁 · ${p.region} · 评分 ${p.score}</div>
+        <div class="sub" style="margin-top:0.2rem;">${p.desc||''}</div>
+        <div class="stats">
+          ${Object.entries(labels).map(([k,v]) => `<span><span class="lbl">${v}</span> <span class="val">${p[k]}</span></span>`).join('')}
+        </div>
+        <div class="rels">${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
+        <div class="rels" style="margin-top:0.3rem;">${(p.treasures||[]).map(t => `<span class="treasure">${t}</span>`).join('')}</div>
+      </div>`;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // NPC网格
   const el = document.getElementById('world');
   const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
-  el.innerHTML = (data.characters||[]).map(c => {
-    const isPlayer = data.player && data.player.name === c.name;
-    const rel = [];
-    if (c.master) rel.push('师:'+c.master);
-    if (c.spouse) rel.push('配偶:'+c.spouse);
-    (c.sworn_brothers||[]).forEach(b => rel.push('义:'+b));
+  el.innerHTML = (data.characters||[]).filter(c => c.name !== (p&&p.name)).map(c => {
+    const rels = [];
+    if (c.master) rels.push('师:'+c.master);
+    if (c.spouse) rels.push('配偶:'+c.spouse);
+    (c.sworn_brothers||[]).forEach(b => rels.push('义:'+b));
     return `
-    <div class="card ${isPlayer?'player':''}">
-      <div class="name">${c.name}${isPlayer?' <span class="tag">[你]</span>':''}<span class="tag">${c.region}</span></div>
-      <div class="stat" style="color:#888;font-size:0.85rem;">${c.desc||''}</div>
+    <div class="card">
+      <div class="name">${c.name}<span class="tag">${c.region}</span></div>
+      <div class="desc">${c.desc||''}</div>
       <div class="stats">
-        ${Object.entries(labels).map(([k,v]) =>
-          `<div class="stat"><span>${v}</span> <span class="val">${c[k]}</span></div>`
-        ).join('')}
+        ${Object.entries(labels).map(([k,v]) => `<div class="stat"><span>${v}</span> <span class="val">${c[k]}</span></div>`).join('')}
         <div class="stat"><span>年龄</span> <span class="val">${c.age}</span></div>
         <div class="stat"><span>评分</span> <span class="val">${c.score}</span></div>
       </div>
-      <div>${rel.map(r => `<span class="badge">${r}</span>`).join('')}</div>
+      <div>${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
+      <div>${(c.treasures||[]).map(t => `<span class="treasure">${t}</span>`).join('')}</div>
       <div class="${c.alive?'alive':'dead'}">${c.alive?'存活':'已死亡'}</div>
     </div>`;
   }).join('');
@@ -155,9 +203,7 @@ async function loadSelect() {
       <div class="pick-card" onclick="selectChar('${c.name}')">
         <div class="name">${c.name}</div>
         <div class="stat">${c.gender} · ${c.age}岁 · ${c.region}</div>
-        ${Object.entries(labels).map(([k,v]) =>
-          `<div class="stat">${v}: ${c[k]}</div>`
-        ).join('')}
+        ${Object.entries(labels).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
         <div class="stat">评分: ${c.score}</div>
         <div class="desc">${c.desc||''}</div>
       </div>
@@ -179,9 +225,7 @@ async function checkPendingEvents() {
   try {
     const r = await fetch('/api/events/pending');
     const data = await r.json();
-    if (data.events && data.events.length > 0) {
-      showEvent(data.events[0]);
-    }
+    if (data.events && data.events.length > 0) showEvent(data.events[0]);
   } catch(e) { console.error(e); }
 }
 
@@ -189,20 +233,17 @@ function showEvent(evt) {
   const overlay = document.getElementById('eventOverlay');
   document.getElementById('eventTitle').textContent = evt.label;
   const labels = {l:'武力', w:'智谋', i:'内力', p:'魅力'};
-  document.getElementById('eventIntro').textContent = evt.label==='拜师'?'选择一位师父':evt.label==='结婚'?'选择一位伴侣':evt.label==='结拜'?'选择一位结义之人':'';
+  const hints = {apprentice:'选择一位师父', marry:'选择一位伴侣', sworn:'选择一位结义之人'};
+  document.getElementById('eventIntro').textContent = hints[evt.event]||'';
   const grid = document.getElementById('eventGrid');
   grid.innerHTML = evt.candidates.map(c => {
-    const extra = evt.event==='apprentice' ? `年龄${c.age}岁` : evt.event==='marry' ? `${c.gender} · ${c.age}岁` : `${c.age}岁`;
-    return `
-      <div class="pick-card" onclick="decideEvent('${evt.event}','${c.name}')">
-        <div class="name">${c.name}</div>
-        <div class="stat">${extra}</div>
-        ${Object.entries(labels).map(([k,v]) =>
-          `<div class="stat">${v}: ${c[k]}</div>`
-        ).join('')}
-        <div class="desc">${c.desc||''}</div>
-      </div>
-    `;
+    const extra = evt.event==='apprentice' ? `${c.age}岁` : evt.event==='marry' ? `${c.gender} · ${c.age}岁` : `${c.age}岁`;
+    return `<div class="pick-card" onclick="decideEvent('${evt.event}','${c.name}')">
+      <div class="name">${c.name}</div>
+      <div class="stat">${extra} · ${c.region}</div>
+      ${Object.entries(labels).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
+      <div class="desc">${c.desc||''}</div>
+    </div>`;
   }).join('');
   overlay.classList.add('active');
 }
