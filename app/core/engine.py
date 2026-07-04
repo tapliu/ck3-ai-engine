@@ -1,9 +1,9 @@
 # app/core/engine.py
 
 from app.core.event_bus import EventBus
-from ai.agent import Agent
-from ai.llm import LLM
-from ai.memory import Memory
+from app.ai.agent import Agent
+from app.ai.llm import LLM
+from app.ai.memory import Memory
 
 class Engine:
 

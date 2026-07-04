@@ -1,20 +1,17 @@
-# app/ai/llm.py
 import os
 import json
-import openai
+from openai import OpenAI
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class LLM:
 
     def call(self, prompt):
-
         try:
-            res = openai.ChatCompletion.create(
+            res = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role":"user","content":prompt}]
             )
-
             return json.loads(res.choices[0].message.content)
 
         except:

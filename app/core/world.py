@@ -1,15 +1,14 @@
-# app/core/world.py
 from collections import defaultdict
-from models.character import Character
+from app.models.character import Character
 import random
 
 DATA = [
-("�?,"黄宇�?,95,100,93,87),
-("�?,"单钰�?,96,98,82,84),
-("�?,"林绮�?,94,71,95,100),
-("�?,"张梦�?,89,79,100,92),
-("�?,"朱棣",100,87,91,97),
-("�?,"张华�?,97,100,92,86)
+("男","黄宇翔",95,100,93,87),
+("女","单钰莹",96,98,82,84),
+("女","林绮思",94,71,95,100),
+("女","张梦心",89,79,100,92),
+("男","朱棣",100,87,91,97),
+("男","张华庆",97,100,92,86)
 ]
 
 class World:
@@ -45,3 +44,6 @@ class World:
         return {
             "characters":[c.to_dict() for c in self.alive()]
         }
+
+
+world = World()

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CK3 武侠AI引擎</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 2rem; }
+h1 { text-align:center; color:#e94560; margin-bottom:2rem; }
+.controls { display:flex; gap:1rem; justify-content:center; margin-bottom:2rem; }
+button { padding:0.5rem 1.5rem; background:#e94560; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:1rem; }
+button:hover { background:#c73650; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:1rem; }
+.card { background:#16213e; border-radius:8px; padding:1rem; border:1px solid #0f3460; }
+.card .name { font-size:1.2rem; font-weight:bold; color:#e94560; }
+.card .stat { margin:0.25rem 0; color:#a0a0c0; }
+.card .alive { color:#4caf50; }
+.card .dead { color:#f44336; }
+.events { margin-top:2rem; background:#16213e; border-radius:8px; padding:1rem; max-height:300px; overflow-y:auto; }
+.events h2 { margin-bottom:0.5rem; color:#e94560; }
+.event-item { padding:0.25rem 0; border-bottom:1px solid #0f3460; }
+</style>
+</head>
+<body>
+<h1>CK3 武侠AI引擎</h1>
+<div class="controls">
+  <button onclick="tick()">Tick (推进一回合)</button>
+  <button onclick="fetchWorld()">刷新</button>
+</div>
+<div id="world" class="grid"></div>
+<div class="events" id="events">
+  <h2>事件日志</h2>
+  <div id="eventLog"></div>
+</div>
+
+<script>
+async function fetchWorld() {
+  try {
+    const r = await fetch('/api/world');
+    const data = await r.json();
+    render(data);
+  } catch(e) { console.error(e); }
+}
+
+async function tick() {
+  try {
+    await fetch('/tick', {method:'POST'});
+    await fetchWorld();
+    await fetchEvents();
+  } catch(e) { console.error(e); }
+}
+
+async function fetchEvents() {
+  try {
+    const r = await fetch('/api/events');
+    const data = await r.json();
+    const log = document.getElementById('eventLog');
+    log.innerHTML = data.map(e => `<div class="event-item">${e.desc}</div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+function render(data) {
+  const el = document.getElementById('world');
+  el.innerHTML = (data.characters||[]).map(c => `
+    <div class="card">
+      <div class="name">${c.name}</div>
+      <div class="stat">性别: ${c.gender}</div>
+      <div class="stat">地区: ${c.region}</div>
+      <div class="stat">评分: ${c.score?.toFixed(1)}</div>
+      <div class="${c.alive?'alive':'dead'}">${c.alive?'存活':'已死亡'}</div>
+    </div>
+  `).join('');
+}
+
+fetchWorld();
+</script>
+</body>
+</html>
