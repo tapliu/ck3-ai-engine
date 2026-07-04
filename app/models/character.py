@@ -4,7 +4,7 @@ import random
 REGIONS = ["中原","江南","塞北","西域","东海"]
 
 class Character:
-    def __init__(self, cid, name, gender, l, w, i, p):
+    def __init__(self, cid, name, gender, l, w, i, p, desc=""):
         self.id = cid
         self.name = name
         self.gender = gender
@@ -19,6 +19,7 @@ class Character:
 
         self.dynasty = name
         self.spouse = None
+        self.desc = desc
 
         self.memory = []
 
@@ -33,6 +34,7 @@ class Character:
             "region": self.region,
             "dynasty": self.dynasty,
             "spouse": self.spouse,
+            "desc": self.desc,
             "l": self.l,
             "w": self.w,
             "i": self.i,

@@ -1,15 +1,32 @@
+import os
+import random
 from collections import defaultdict
 from app.models.character import Character
-import random
 
-DATA = [
-("男","黄宇翔",95,100,93,87),
-("女","单钰莹",96,98,82,84),
-("女","林绮思",94,71,95,100),
-("女","张梦心",89,79,100,92),
-("男","朱棣",100,87,91,97),
-("男","张华庆",97,100,92,86)
-]
+
+def _load_excel():
+    path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "xczyw_xs.xlsx")
+    if not os.path.isfile(path):
+        return []
+
+    try:
+        import openpyxl
+    except ImportError:
+        return []
+
+    wb = openpyxl.load_workbook(path, read_only=True)
+    ws = wb["Sheet5"]
+    rows = []
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row[2] is None:
+            continue
+        rows.append((row[1], row[2], row[3], row[4], row[5], row[6], row[7] or ""))
+    wb.close()
+    return rows
+
+
+DATA = _load_excel()
+
 
 class World:
     def __init__(self):
@@ -20,8 +37,8 @@ class World:
         for d in DATA:
             self.create(*d)
 
-    def create(self, gender, name, l, w, i, p):
-        c = Character(self.next_id, name, gender, l, w, i, p)
+    def create(self, gender, name, l, w, i, p, desc=""):
+        c = Character(self.next_id, name, gender, l, w, i, p, desc)
         self.characters[self.next_id] = c
 
         for k in self.characters:
