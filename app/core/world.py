@@ -60,6 +60,23 @@ WUXIA_EVENTS = [
 ]
 
 
+TITLE_RULES = [
+    {"id": "first_task", "name": "初出茅庐", "desc": "完成第一次任务"},
+    {"id": "xia_yi_50", "name": "侠义之士", "desc": "侠义值达到50"},
+    {"id": "xia_yi_100", "name": "一代大侠", "desc": "侠义值达到100"},
+    {"id": "stat_120", "name": "武林高手", "desc": "任意属性达到120"},
+    {"id": "all_100", "name": "文武双全", "desc": "四项属性均达到100"},
+    {"id": "survive_50", "name": "百战英雄", "desc": "存活50回合"},
+    {"id": "married", "name": "情缘已了", "desc": "缔结婚姻"},
+    {"id": "sworn", "name": "义薄云天", "desc": "结拜兄弟/姐妹"},
+    {"id": "treasure_3", "name": "收藏大家", "desc": "收集3件宝物"},
+    {"id": "deadly_survive", "name": "不坏之身", "desc": "从极难任务中生还"},
+    {"id": "friends_10", "name": "交友满天下", "desc": "10位角色好感≥60"},
+    {"id": "w_150", "name": "武道宗师", "desc": "武力达到150"},
+    {"id": "all_130", "name": "江湖传说", "desc": "四项属性均达到130"},
+]
+
+
 class World:
     def __init__(self):
         self.characters = {}
@@ -74,6 +91,8 @@ class World:
         self.pending_decay = None
         self.tournament = None
         self.game_over = False
+        self.history = []
+        self.titles_awarded = set()
 
         for d in DATA:
             self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""), d.get("age", 20))
@@ -141,6 +160,34 @@ class World:
         random.shuffle(pool)
         return pool[:3]
 
+    def settlement(self):
+        if not self.player_char:
+            return None
+        p = self.player_char
+        rels = self.rel[p.id]
+        friends = [{"name": c.name, "rel": rels.get(c.id, 0)} for c in self.alive_except_player() if rels.get(c.id, 0) >= 60]
+        enemies = [{"name": c.name, "rel": rels.get(c.id, 0)} for c in self.alive_except_player() if rels.get(c.id, 0) <= -20]
+        # key events: filter history to important ones
+        key_types = {"task_success", "task_fail", "death", "marry", "apprentice", "sworn",
+                     "title", "treasure", "tournament", "decay", "combat", "cooperation"}
+        timeline = [h for h in self.history if h["type"] in key_types]
+        rounds = getattr(self, "engine", None) and self.engine.round or 0
+        return {
+            "rounds": rounds,
+            "alive": p.alive,
+            "titles": p.titles,
+            "init_l": p._init_l, "init_w": p._init_w, "init_i": p._init_i, "init_p": p._init_p,
+            "final_l": p.l, "final_w": p.w, "final_i": p.i, "final_p": p.p,
+            "xia_yi": p.xia_yi,
+            "friends": sorted(friends, key=lambda x: -x["rel"]),
+            "enemies": sorted(enemies, key=lambda x: x["rel"]),
+            "treasures": p.treasures,
+            "spouse": p.spouse,
+            "master": p.master,
+            "sworn_brothers": p.sworn_brothers,
+            "timeline": timeline[-50:],
+        }
+
     def export(self):
         rel = self.rel[self.player_char.id] if self.player_char and self.player_char.id in self.rel else {}
         return {
@@ -149,18 +196,54 @@ class World:
             "triggers": self.triggers,
             "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0)} for c in self.alive()],
             "game_over": self.game_over,
+            "settlement": self.settlement() if self.game_over else None,
         }
 
     def set_player(self, name):
         c = self.get(name)
         if c:
             self.player_char = c
+            c.init_stats()
         return self.player_char
+
+    def _check_titles(self):
+        if not self.player_char:
+            return
+        p = self.player_char
+        checks = {
+            "first_task": lambda: p.xia_yi > 0,
+            "xia_yi_50": lambda: p.xia_yi >= 50,
+            "xia_yi_100": lambda: p.xia_yi >= 100,
+            "stat_120": lambda: max(p.l, p.w, p.i, p.p) >= 120,
+            "all_100": lambda: p.l >= 100 and p.w >= 100 and p.i >= 100 and p.p >= 100,
+            "survive_50": lambda: getattr(self, "engine", None) and self.engine.round >= 50,
+            "married": lambda: bool(p.spouse),
+            "sworn": lambda: len(p.sworn_brothers) > 0,
+            "treasure_3": lambda: len(p.treasures) >= 3,
+            "deadly_survive": lambda: False,
+            "friends_10": lambda: sum(1 for c in self.alive_except_player() if self.rel[p.id].get(c.id, 0) >= 60) >= 10,
+            "w_150": lambda: p.w >= 150,
+            "all_130": lambda: p.l >= 130 and p.w >= 130 and p.i >= 130 and p.p >= 130,
+        }
+        for rule in TITLE_RULES:
+            if rule["id"] in self.titles_awarded:
+                continue
+            if rule["id"] == "deadly_survive":
+                continue
+            if checks.get(rule["id"], lambda: False)():
+                self.titles_awarded.add(rule["id"])
+                p.titles.append(rule["name"])
+                if not p.title:
+                    p.title = rule["name"]
+                self._emit({"type": "title", "desc": f"{p.name}获得称号「{rule['name']}」——{rule['desc']}"})
 
     def _emit(self, evt):
         bus = getattr(self, "engine", None)
         if bus:
             bus.bus.emit(evt)
+        if self.player_char:
+            round_n = getattr(self, "engine", None) and self.engine.round or 0
+            self.history.append({"round": round_n, "type": evt.get("type"), "desc": evt.get("desc", "")})
 
     def do_apprentice(self, target_name):
         target = self.get(target_name)
@@ -176,6 +259,7 @@ class World:
             target.spouse = self.player_char.name
             self.triggers["marry"] = True
             self._emit({"type": "marry", "desc": f"{self.player_char.name}与{target_name}结为夫妻"})
+            self._check_titles()
 
     def do_sworn(self, target_name):
         target = self.get(target_name)
@@ -184,6 +268,7 @@ class World:
             elder.sworn_brothers.append(younger.name)
             younger.sworn_brothers.append(elder.name)
             self.triggers["sworn"] = True
+            self._check_titles()
             label = "兄弟" if elder.gender == "男" else "姐妹"
             self._emit({"type": "sworn", "desc": f"{elder.name}与{younger.name}结为{label}"})
 
@@ -217,6 +302,7 @@ class World:
         self.used_treasures.add(t["id"])
         self._grant_treasure(self.player_char, t)
         self._emit({"type": "treasure", "desc": f"{self.player_char.name}奇遇获得【{t['name']}】（{t['type']}）：{t['desc']}"})
+        self._check_titles()
 
     def character_treasure_event(self):
         if not TREASURES:
@@ -316,13 +402,21 @@ class World:
                     self.player_char.xia_yi += xia_yi_gain
                     desc_parts.append(f"成功！与{target.name}好感度+{change}，侠义值+{xia_yi_gain}")
                     self._emit({"type": "task_success", "desc": "".join(desc_parts)})
+                    self._check_titles()
                     return {"success": True, "desc": "".join(desc_parts), "rel_change": change, "xia_yi": xia_yi_gain}
             is_deadly = task["type"] == "deadly"
+            if is_deadly:
+                self.titles_awarded.add("deadly_survive")
+                self.player_char.titles.append("不坏之身")
+                if not self.player_char.title:
+                    self.player_char.title = "不坏之身"
+                self._emit({"type": "title", "desc": f"{self.player_char.name}从极难任务中生还，获得称号「不坏之身」"})
             reward = self._grant_task_reward(deadly=is_deadly)
             xia_yi_gain = random.randint(3, 6) if is_deadly else xia_yi_gain
             self.player_char.xia_yi += xia_yi_gain
             desc_parts.append(f"成功！{reward['desc']}，侠义值+{xia_yi_gain}")
             self._emit({"type": "task_success", "desc": "".join(desc_parts)})
+            self._check_titles()
             return {"success": True, "desc": "".join(desc_parts), "reward": reward, "xia_yi": xia_yi_gain}
         else:
             if task["type"] == "coop" and task.get("target"):
@@ -571,6 +665,7 @@ class World:
                     self.rel[c.id][champion.id] = max(-100, self.rel[c.id].get(champion.id, 0) - 10)
                     self.rel[champion.id][c.id] = max(-100, self.rel[champion.id].get(c.id, 0) - 10)
             self._emit({"type": "tournament", "desc": f"天下第一武道会决赛！{champion.name}获得「天下第一人」称号！武力+10，众人对其好感-10"})
+            self._check_titles()
 
 
 world = World()

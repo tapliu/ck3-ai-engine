@@ -1,4 +1,5 @@
 import random
+from copy import deepcopy
 
 REGIONS = ["中原","江南","塞北","西域","东海"]
 
@@ -28,8 +29,20 @@ class Character:
         self.treasures = []
         self.xia_yi = 0
         self.title = ""
+        self.titles = []
 
         self.memory = []
+
+        self._init_l = self.l
+        self._init_w = self.w
+        self._init_i = self.i
+        self._init_p = self.p
+
+    def init_stats(self):
+        self._init_l = self.l
+        self._init_w = self.w
+        self._init_i = self.i
+        self._init_p = self.p
 
     @property
     def l(self):
@@ -79,5 +92,10 @@ class Character:
             "treasures": self.treasures,
             "xia_yi": self.xia_yi,
             "title": self.title,
+            "titles": self.titles,
             "memory": self.memory[-5:],
+            "init_l": self._init_l,
+            "init_w": self._init_w,
+            "init_i": self._init_i,
+            "init_p": self._init_p,
         }

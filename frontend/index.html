@@ -89,11 +89,41 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .task-btn-focus:hover { background:#40916c; }
 .task-card-deadly { border-color:#f44336; background:linear-gradient(135deg,#2e1a1a,#16213e); box-shadow:0 0 12px rgba(244,67,54,0.3); }
 .task-deadly-icon { color:#f44336; font-weight:bold; margin-left:0.3rem; }
-.gameover-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); justify-content:center; align-items:center; z-index:999; }
+.gameover-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); justify-content:center; align-items:flex-start; z-index:999; overflow-y:auto; padding:2rem; }
 .gameover-overlay.active { display:flex; }
-.gameover-box { text-align:center; padding:3rem; }
-.gameover-box h1 { font-size:3rem; color:#f44336; margin-bottom:1rem; }
-.gameover-box p { color:#a0a0c0; font-size:1.2rem; margin-bottom:2rem; }
+.gameover-box { max-width:720px; width:100%; margin:0 auto; }
+.gameover-box h1 { font-size:2.5rem; color:#e94560; margin-bottom:0.3rem; text-align:center; }
+.gameover-subtitle { text-align:center; color:#a0a0c0; font-size:1rem; margin-bottom:2rem; }
+.go-section { background:#16213e; border:1px solid #0f3460; border-radius:8px; padding:1.2rem; margin-bottom:1rem; }
+.go-section h2 { color:#e94560; font-size:1.1rem; margin-bottom:0.8rem; border-bottom:1px solid #0f3460; padding-bottom:0.4rem; }
+.go-titles { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.go-title-badge { background:linear-gradient(135deg,#3a1a2e,#533483); border:1px solid #e040fb; border-radius:12px; padding:0.25rem 0.7rem; font-size:0.85rem; color:#e040fb; }
+.go-stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; }
+.go-stat-box { text-align:center; background:#0f3460; padding:0.5rem; border-radius:6px; }
+.go-stat-box .label { font-size:0.75rem; color:#888; }
+.go-stat-box .change { font-weight:bold; font-size:1rem; }
+.go-stat-box .change.up { color:#4caf50; }
+.go-stat-box .change.down { color:#f44336; }
+.go-friend { display:inline-flex; align-items:center; gap:0.3rem; background:#0f3460; border-radius:4px; padding:0.2rem 0.5rem; margin:0.15rem; font-size:0.85rem; }
+.go-friend .rel { color:#4ecdc4; font-weight:bold; }
+.go-enemy { display:inline-flex; align-items:center; gap:0.3rem; background:#2e1a1a; border-radius:4px; padding:0.2rem 0.5rem; margin:0.15rem; font-size:0.85rem; }
+.go-enemy .rel { color:#f44336; font-weight:bold; }
+.go-timeline { max-height:300px; overflow-y:auto; font-size:0.8rem; }
+.go-tl-item { padding:0.25rem 0; border-bottom:1px solid #0f3460; color:#a0a0c0; }
+.go-tl-item .round { color:#e94560; font-weight:bold; margin-right:0.5rem; }
+.go-tl-item .tl-title { color:#e040fb; margin-right:0.3rem; }
+.go-tl-item .tl-treasure { color:#f0a0b0; }
+.go-tl-item .tl-combat { color:#ff6b35; }
+.go-tl-item .tl-cooperation { color:#4ecdc4; }
+.go-tl-item .tl-task_success { color:#4caf50; }
+.go-tl-item .tl-task_fail { color:#f44336; }
+.go-tl-item .tl-death { color:#000; background:#f44336; padding:0.1rem 0.3rem; border-radius:3px; font-weight:bold; }
+.go-tl-item .tl-marry { color:#ff69b4; }
+.go-tl-item .tl-apprentice { color:#80c0e0; }
+.go-tl-item .tl-sworn { color:#ffd700; }
+.go-tl-item .tl-decay { color:#ff9800; }
+.go-tl-item .tl-title { color:#e040fb; }
+.go-xia-yi { text-align:center; font-size:1.3rem; color:#ffd700; font-weight:bold; padding:1rem; border:2px solid #ffd700; border-radius:8px; margin-bottom:1rem; }
 .task-result { position:fixed; top:1rem; left:50%; transform:translateX(-50%); padding:0.8rem 1.5rem; border-radius:8px; z-index:200; font-size:0.95rem; text-align:center; display:none; max-width:500px; }
 .task-result-ok { background:#1b4332; border:1px solid #4caf50; color:#a5d6a7; }
 .task-result-fail { background:#3e1a1a; border:1px solid #f44336; color:#ef9a9a; }
@@ -193,9 +223,10 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <!-- 游戏结束 -->
 <div class="gameover-overlay" id="gameoverOverlay">
   <div class="gameover-box">
-    <h1>逝</h1>
-    <p>你的江湖之旅到此结束…</p>
-    <button onclick="location.reload()">重新开始</button>
+    <div id="settlementContent"></div>
+    <div style="text-align:center;margin-top:1.5rem;">
+      <button onclick="location.reload()">重新开始</button>
+    </div>
   </div>
 </div>
 
@@ -271,11 +302,63 @@ async function fetchEvents() {
   } catch(e) { console.error(e); }
 }
 
+function renderSettlement(s) {
+  if (!s) return '';
+  const statLabel = {init_l:'机敏',init_w:'武力',init_i:'魅力',init_p:'智谋'};
+  const stats = ['l','w','i','p'];
+  const TYPE_CLS = {treasure:'tl-treasure',combat:'tl-combat',cooperation:'tl-cooperation',task_success:'tl-task_success',task_fail:'tl-task_fail',death:'tl-death',marry:'tl-marry',apprentice:'tl-apprentice',sworn:'tl-sworn',decay:'tl-decay',title:'tl-title'};
+  return `
+    <h1>${s.alive ? '归隐江湖' : '逝'}</h1>
+    <div class="go-subtitle">历经 ${s.rounds} 回合 · ${s.alive ? '功成身退' : '战死江湖'}</div>
+    <div class="go-xia-yi">侠义值: ${s.xia_yi}</div>
+    <div class="go-section">
+      <h2>称号</h2>
+      <div class="go-titles">${(s.titles||[]).length ? s.titles.map(t=>`<span class="go-title-badge">${t}</span>`).join('') : '<span style="color:#888;font-size:0.85rem;">无</span>'}</div>
+    </div>
+    <div class="go-section">
+      <h2>属性变化</h2>
+      <div class="go-stat-grid">${stats.map(k => {
+        const init = s['init_'+k], fin = s['final_'+k];
+        const diff = fin - init;
+        const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+        return `<div class="go-stat-box"><div class="label">${statLabel['init_'+k]}</div><div class="change ${cls}">${init} → ${fin}${diff ? ` (${diff>0?'+':''}${diff})` : ''}</div></div>`;
+      }).join('')}</div>
+    </div>
+    <div class="go-section">
+      <h2>江湖关系</h2>
+      <div style="margin-bottom:0.5rem;">
+        <span style="color:#888;font-size:0.85rem;">好友 (${s.friends.length})：</span>
+        ${s.friends.map(f => `<span class="go-friend">${f.name} <span class="rel">+${f.rel}</span></span>`).join('')||'<span style="color:#888;font-size:0.8rem;">无</span>'}
+      </div>
+      <div>
+        <span style="color:#888;font-size:0.85rem;">宿敌 (${s.enemies.length})：</span>
+        ${s.enemies.map(e => `<span class="go-enemy">${e.name} <span class="rel">${e.rel}</span></span>`).join('')||'<span style="color:#888;font-size:0.8rem;">无</span>'}
+      </div>
+      <div style="margin-top:0.5rem;color:#a0a0c0;font-size:0.85rem;">
+        ${s.spouse ? `配偶: ${s.spouse}` : ''}${s.spouse&&s.master?' · ':''}${s.master ? `师父: ${s.master}` : ''}${(s.spouse||s.master)&&s.sworn_brothers.length?' · ':''}${s.sworn_brothers.length ? `义${s.sworn_brothers[0]?.[0]==='男'?'兄弟':'姐妹'}: ${s.sworn_brothers.join('、')}` : ''}
+      </div>
+    </div>
+    <div class="go-section">
+      <h2>宝物</h2>
+      <div>${(s.treasures||[]).length ? s.treasures.map(t => `<span class="treasure">${t.name}</span>`).join('') : '<span style="color:#888;font-size:0.85rem;">未获得任何宝物</span>'}</div>
+    </div>
+    <div class="go-section">
+      <h2>江湖历程</h2>
+      <div class="go-timeline">${(s.timeline||[]).map(h => {
+        const cls = TYPE_CLS[h.type]||'';
+        return `<div class="go-tl-item"><span class="round">[${h.round}]</span><span class="${cls}">${h.desc}</span></div>`;
+      }).join('')||'<span style="color:#888;font-size:0.85rem;">无</span>'}</div>
+    </div>`;
+}
+
 function render(data) {
   document.getElementById('roundDisplay').textContent = '回合: ' + (data.round||0);
   if (data.game_over) {
     document.getElementById('gameoverOverlay').classList.add('active');
     document.getElementById('tickBtn').disabled = true;
+    if (data.settlement) {
+      document.getElementById('settlementContent').innerHTML = renderSettlement(data.settlement);
+    }
   }
 
   // 玩家横幅
@@ -533,6 +616,7 @@ async function doAutoTick() {
     setTimeout(doAutoTick, 300);
     return;
   }
+  if (document.getElementById('gameoverOverlay').classList.contains('active')) { toggleAuto(); return; }
   const tickBtn = document.getElementById('tickBtn');
   if (tickBtn.disabled) { setTimeout(doAutoTick, 500); return; }
   if (autoTicked) { toggleAuto(); return; }

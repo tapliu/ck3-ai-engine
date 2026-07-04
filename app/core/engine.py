@@ -43,6 +43,7 @@ class Engine:
         self.world.do_tick_events()
         self.world.check_decay()
         self.world.maybe_start_tournament()
+        self.world._check_titles()
 
     def execute(self, npc, d):
 
