@@ -2,6 +2,7 @@ import os
 import random
 from collections import defaultdict
 from app.models.character import Character
+from app.models.region import CITIES, ALL_CITIES
 
 STAT_FIELDS = ["base_l", "base_w", "base_i", "base_p"]
 STAT_LABELS = {"base_l":"机敏","base_w":"武力","base_i":"魅力","base_p":"智谋"}
@@ -96,6 +97,16 @@ class World:
 
         for d in DATA:
             self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""), d.get("age", 20))
+        # 均衡分配城市
+        chars_by_region = defaultdict(list)
+        for c in self.characters.values():
+            chars_by_region[c.region].append(c)
+        for region, chars in chars_by_region.items():
+            region_cities = CITIES.get(region, [])
+            if not region_cities:
+                continue
+            for i, c in enumerate(chars):
+                c.city = region_cities[i % len(region_cities)]
 
     def create(self, gender, name, l, w, i, p, desc="", age=20):
         c = Character(self.next_id, name, gender, l, w, i, p, desc, age)
@@ -190,6 +201,11 @@ class World:
 
     def export(self):
         rel = self.rel[self.player_char.id] if self.player_char and self.player_char.id in self.rel else {}
+        cities_info = {}
+        for region, clist in CITIES.items():
+            for city in clist:
+                pop = [c.name for c in self.alive() if c.city == city]
+                cities_info[city] = {"region": region, "population": pop, "count": len(pop)}
         return {
             "round": getattr(self, "engine", None) and self.engine.round or 0,
             "player": self.player_char.to_dict() if self.player_char else None,
@@ -197,6 +213,7 @@ class World:
             "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0)} for c in self.alive()],
             "game_over": self.game_over,
             "settlement": self.settlement() if self.game_over else None,
+            "cities": cities_info,
         }
 
     def set_player(self, name):
@@ -459,22 +476,26 @@ class World:
 
     # ---- 战斗（不和引起） ----
 
-    def combat_event(self):
-        chars_by_region = defaultdict(list)
+    def _group_by_city(self):
+        by_city = defaultdict(list)
         for c in self.alive():
-            chars_by_region[c.region].append(c)
+            by_city[c.city or c.region].append(c)
+        return by_city
+
+    def combat_event(self):
+        chars_by_city = self._group_by_city()
         candidates = []
-        for region, chars in chars_by_region.items():
+        for city, chars in chars_by_city.items():
             for i in range(len(chars)):
                 for j in range(i+1, len(chars)):
                     ca, cb = chars[i], chars[j]
                     rel = self.rel[ca.id].get(cb.id, 0)
                     if rel < -10:
-                        candidates.append((ca, cb, region))
+                        candidates.append((ca, cb, city))
         if not candidates:
             return
         random.shuffle(candidates)
-        a, b, region = candidates[0]
+        a, b, city = candidates[0]
         aw, bw = a.w, b.w
         if aw >= bw:
             winner, loser = a, b
@@ -485,7 +506,7 @@ class World:
         # 死亡判定：武力差距越大越可能死亡
         gap = winner.w - loser.w
         death_chance = max(0.05, min(0.5, gap / 100))
-        desc = f"【{region}】{winner.name}与{loser.name}不和激化，爆发战斗！{winner.name}胜出，{loser.name}武力受损"
+        desc = f"【{city}】{winner.name}与{loser.name}不和激化，爆发战斗！{winner.name}胜出，{loser.name}武力受损"
         if random.random() < death_chance:
             loser.alive = False
             desc += f"，{loser.name}伤重身亡！"
@@ -498,21 +519,19 @@ class World:
     # ---- 和睦（引起任务共享） ----
 
     def cooperation_event(self):
-        chars_by_region = defaultdict(list)
-        for c in self.alive():
-            chars_by_region[c.region].append(c)
+        chars_by_city = self._group_by_city()
         candidates = []
-        for region, chars in chars_by_region.items():
+        for city, chars in chars_by_city.items():
             for i in range(len(chars)):
                 for j in range(i+1, len(chars)):
                     ca, cb = chars[i], chars[j]
                     rel = self.rel[ca.id].get(cb.id, 0)
                     if rel > 10:
-                        candidates.append((ca, cb, region))
+                        candidates.append((ca, cb, city))
         if not candidates:
             return
         random.shuffle(candidates)
-        a, b, region = candidates[0]
+        a, b, city = candidates[0]
         stats = ["bonus_l", "bonus_w", "bonus_i", "bonus_p"]
         for c in (a, b):
             s = random.choice(stats)
@@ -520,7 +539,7 @@ class World:
             setattr(c, s, getattr(c, s) + boost)
         self._emit({
             "type": "cooperation",
-            "desc": f"【{region}】{a.name}与{b.name}和睦互助，共享江湖情报，二人各有所获"
+            "desc": f"【{city}】{a.name}与{b.name}和睦互助，共享江湖情报，二人各有所获"
         })
 
     def do_tick_events(self):

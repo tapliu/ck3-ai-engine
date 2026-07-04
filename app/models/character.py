@@ -1,5 +1,6 @@
 import random
 from copy import deepcopy
+from app.models.region import CITIES
 
 REGIONS = ["中原","江南","塞北","西域","东海"]
 
@@ -20,6 +21,7 @@ class Character:
 
         self.alive = True
         self.region = random.choice(REGIONS)
+        self.city = None
         self.dynasty = name
         self.desc = desc
 
@@ -70,6 +72,7 @@ class Character:
             "gender": self.gender,
             "age": self.age,
             "region": self.region,
+            "city": self.city,
             "dynasty": self.dynasty,
             "desc": self.desc,
             "l": self.l,

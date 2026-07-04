@@ -375,7 +375,7 @@ function render(data) {
       <img class="char-portrait" src="${portraitUrl(p.id)}" onclick="showFullBody(${p.id})" title="点击查看全身像">
       <div class="player-info">
         <h2>${p.name}</h2>
-        <div class="sub">${p.gender} · ${p.age}岁 · ${p.region} · 评分 ${p.score}</div>
+        <div class="sub">${p.gender} · ${p.age}岁 · ${p.city||p.region} · 评分 ${p.score}</div>
         <div class="sub" style="margin-top:0.2rem;">${p.desc||''}</div>
         <div class="stats">
           ${Object.entries(STAT_LABELS).map(([k,v]) => {
@@ -410,7 +410,7 @@ function render(data) {
     <div class="card">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;">
         <img class="char-portrait-sm" src="${portraitUrl(c.id)}" onclick="showFullBody(${c.id})" title="点击查看全身像">
-        <div><div class="name">${c.name}<span class="tag">${c.region}</span></div></div>
+        <div><div class="name">${c.name}<span class="tag">${c.city||c.region}</span></div></div>
       </div>
       <div class="desc">${c.desc||''}</div>
       <div class="stats">
@@ -442,7 +442,7 @@ async function loadSelect() {
       <div class="pick-card" onclick="selectChar('${c.name}')">
         <img class="select-img" src="${fullBodyUrl(c.id)}" alt="${c.name}">
         <div class="name">${c.name}</div>
-        <div class="stat">${c.gender} · ${c.age}岁 · ${c.region}</div>
+        <div class="stat">${c.gender} · ${c.age}岁 · ${c.city||c.region}</div>
         ${Object.entries(STAT_LABELS).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
         <div class="stat">评分: ${c.score}</div>
         <div class="desc">${c.desc||''}</div>
