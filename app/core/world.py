@@ -4,28 +4,17 @@ from collections import defaultdict
 from app.models.character import Character
 
 
-def _load_excel():
-    path = r"E:\game\xczyw_xs.xlsx"
+def _load_data():
+    path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "chars.json")
     if not os.path.isfile(path):
         return []
 
-    try:
-        import openpyxl
-    except ImportError:
-        return []
-
-    wb = openpyxl.load_workbook(path, read_only=True)
-    ws = wb["Sheet5"]
-    rows = []
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        if row[2] is None:
-            continue
-        rows.append((row[1], row[2], row[3], row[4], row[5], row[6], row[7] or ""))
-    wb.close()
-    return rows
+    import json
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-DATA = _load_excel()
+DATA = _load_data()
 
 
 class World:
@@ -35,7 +24,7 @@ class World:
         self.next_id = 0
 
         for d in DATA:
-            self.create(*d)
+            self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""))
 
     def create(self, gender, name, l, w, i, p, desc=""):
         c = Character(self.next_id, name, gender, l, w, i, p, desc)
