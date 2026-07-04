@@ -37,6 +37,7 @@ class Engine:
             "desc": f"第{self.round}回合结束"
         })
 
+        self.world.check_movement()
         self.world.generate_tasks()
         self.world.combat_event()
         self.world.cooperation_event()

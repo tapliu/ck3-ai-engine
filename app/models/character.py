@@ -23,6 +23,7 @@ class Character:
         self.region = random.choice(REGIONS)
         self.city = None
         self.dynasty = name
+        self.next_move_round = 0
         self.desc = desc
 
         self.spouse = None
@@ -96,6 +97,7 @@ class Character:
             "xia_yi": self.xia_yi,
             "title": self.title,
             "titles": self.titles,
+            "next_move_round": self.next_move_round,
             "memory": self.memory[-5:],
             "init_l": self._init_l,
             "init_w": self._init_w,

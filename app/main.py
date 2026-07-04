@@ -119,6 +119,24 @@ def execute_decay(body: DecayChoice):
     return world.execute_decay(body.field)
 
 
+# ---- 移动系统 ----
+
+class MoveRequest(BaseModel):
+    dest: str
+
+
+@app.get("/api/move/pending")
+def get_movement():
+    return world.pending_move or {"city": None, "routes": []}
+
+@app.post("/api/move")
+def execute_move(body: MoveRequest):
+    result = world.execute_move(body.dest)
+    if not result.get("ok"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(result))
+    return result
+
 # ---- 天下第一武道会 ----
 
 @app.get("/api/tournament")

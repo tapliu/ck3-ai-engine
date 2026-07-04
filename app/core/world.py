@@ -94,6 +94,7 @@ class World:
         self.game_over = False
         self.history = []
         self.titles_awarded = set()
+        self.pending_move = None
 
         for d in DATA:
             self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""), d.get("age", 20))
@@ -214,6 +215,7 @@ class World:
             "game_over": self.game_over,
             "settlement": self.settlement() if self.game_over else None,
             "cities": cities_info,
+            "pending_move": self.pending_move,
         }
 
     def set_player(self, name):
@@ -357,9 +359,19 @@ class World:
             }
             if t["tag"] == "coop":
                 targets = self.alive_except_player()
-                if not targets:
+                if not targets or not self.player_char:
                     continue
-                target = random.choice(targets)
+                # 加权：同城市 > 同区域 > 不同区域（不合作）
+                same_city = [c for c in targets if c.city == self.player_char.city]
+                same_region = [c for c in targets if c.region == self.player_char.region and c.city != self.player_char.city]
+                weighted = []
+                for c in same_city:
+                    weighted.extend([c] * 5)
+                for c in same_region:
+                    weighted.extend([c] * 2)
+                if not weighted:
+                    continue
+                target = random.choice(weighted)
                 entry["target"] = target.name
                 entry["desc"] = t["desc"].format(target=target.name)
             self.pending_tasks.append(entry)
@@ -575,6 +587,49 @@ class World:
         self._emit({"type": "decay", "desc": f"{self.player_char.name}不进则退，选择降低{STAT_LABELS[field]}：{old}→{new}"})
         self.pending_decay = None
         return {"ok": True, "field": field, "old": old, "new": new}
+
+    # ---- 移动系统（每2回合可沿路线移动） ----
+
+    def _update_region(self, c):
+        for r, cl in CITIES.items():
+            if c.city in cl:
+                c.region = r
+                return
+
+    def check_movement(self):
+        if not getattr(self, "engine", None):
+            return
+        round_n = self.engine.round
+        for c in self.alive():
+            if c.next_move_round > round_n:
+                continue
+            if not c.city:
+                continue
+            routes = CITY_CONNECTIONS.get(c.city, [])
+            if not routes:
+                continue
+            if c == self.player_char:
+                self.pending_move = {"city": c.city, "routes": routes}
+            else:
+                dest = random.choice(routes)
+                old_city = c.city
+                c.city = dest
+                c.next_move_round = round_n + 2
+                self._update_region(c)
+                self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
+
+    def execute_move(self, dest):
+        if not self.player_char or not self.pending_move:
+            return {"ok": False}
+        p = self.player_char
+        old_city = p.city
+        p.city = dest
+        round_n = getattr(self, "engine", None) and self.engine.round or 0
+        p.next_move_round = round_n + 2
+        self.pending_move = None
+        self._update_region(p)
+        self._emit({"type": "move", "desc": f"{p.name}从{old_city}出发，抵达{dest}"})
+        return {"ok": True, "city": dest}
 
     # ---- 天下第一武道会（每30回合） ----
 

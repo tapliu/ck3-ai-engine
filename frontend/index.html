@@ -38,6 +38,10 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .card .city { font-size:0.8rem; color:#a0a0c0; display:inline-block; margin-left:0.3rem; }
 .capital-badge { background:#ffd700; color:#1a1a2e; font-size:0.7rem; font-weight:bold; padding:0.1rem 0.4rem; border-radius:3px; margin-left:0.3rem; }
 .center-badge { background:#e040fb; color:#fff; font-size:0.7rem; padding:0.1rem 0.3rem; border-radius:3px; margin-left:0.2rem; }
+.move-card { background:#16213e; border:2px solid #4ecdc4; border-radius:8px; padding:1rem; cursor:pointer; text-align:center; transition:all 0.2s; }
+.move-card:hover { border-color:#e94560; transform:translateY(-4px); }
+.move-card .dest { font-size:1.1rem; font-weight:bold; color:#4ecdc4; }
+.move-card .rinfo { font-size:0.8rem; color:#888; margin-top:0.2rem; }
 .card .stats { display:grid; grid-template-columns:1fr 1fr; gap:0.2rem 1rem; margin:0.4rem 0; }
 .card .stat { font-size:0.85rem; }
 .card .stat span { color:#a0a0c0; }
@@ -232,6 +236,15 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 
 <div id="taskResultBanner" class="task-result"></div>
 
+<!-- 移动弹窗 -->
+<div class="overlay" id="moveOverlay">
+  <div class="modal" style="max-width:500px;">
+    <h2>江湖行路</h2>
+    <div class="intro" id="moveIntro">选择前往的目的地</div>
+    <div class="pick-grid" id="moveGrid" style="grid-template-columns:1fr 1fr;"></div>
+  </div>
+</div>
+
 <!-- 游戏结束 -->
 <!-- 江山舆图 -->
 <div class="overlay" id="cityMapOverlay">
@@ -302,10 +315,13 @@ async function tick() {
     await fetchWorld();
     await fetchEvents();
     await checkTournament();
-    const hasEvent = await checkPendingEvents();
-    if (!hasEvent) {
-      const hasDecay = await checkDecay();
-      if (!hasDecay) await checkPendingTasks();
+    const hasMove = await checkPendingMove();
+    if (!hasMove) {
+      const hasEvent = await checkPendingEvents();
+      if (!hasEvent) {
+        const hasDecay = await checkDecay();
+        if (!hasDecay) await checkPendingTasks();
+      }
     }
   } catch(e) { console.error(e); }
   btn.disabled = false;
@@ -316,7 +332,7 @@ async function fetchEvents() {
     const r = await fetch('/api/events');
     const data = await r.json();
     const log = document.getElementById('eventLog');
-    const TYPE_CLASS = {'treasure':'event-treasure','wuxia':'event-wuxia','combat':'event-combat','cooperation':'event-cooperation','task_success':'event-task_success','task_fail':'event-task_fail','decay':'event-decay','tournament':'event-tournament','death':'event-death'};
+    const TYPE_CLASS = {'treasure':'event-treasure','wuxia':'event-wuxia','combat':'event-combat','cooperation':'event-cooperation','task_success':'event-task_success','task_fail':'event-task_fail','decay':'event-decay','tournament':'event-tournament','death':'event-death','move':'event-wuxia'};
     log.innerHTML = data.map(e => {
       const cls = TYPE_CLASS[e.type]||'';
       return `<div class="event-item ${cls}"><span class="event-round">[${e.round||'?'}]</span>${e.desc}</div>`;
@@ -328,7 +344,7 @@ function renderSettlement(s) {
   if (!s) return '';
   const statLabel = {init_l:'机敏',init_w:'武力',init_i:'魅力',init_p:'智谋'};
   const stats = ['l','w','i','p'];
-  const TYPE_CLS = {treasure:'tl-treasure',combat:'tl-combat',cooperation:'tl-cooperation',task_success:'tl-task_success',task_fail:'tl-task_fail',death:'tl-death',marry:'tl-marry',apprentice:'tl-apprentice',sworn:'tl-sworn',decay:'tl-decay',title:'tl-title'};
+  const TYPE_CLS = {treasure:'tl-treasure',combat:'tl-combat',cooperation:'tl-cooperation',task_success:'tl-task_success',task_fail:'tl-task_fail',death:'tl-death',marry:'tl-marry',apprentice:'tl-apprentice',sworn:'tl-sworn',decay:'tl-decay',title:'tl-title',move:'tl-title'};
   return `
     <h1>${s.alive ? '归隐江湖' : '逝'}</h1>
     <div class="go-subtitle">历经 ${s.rounds} 回合 · ${s.alive ? '功成身退' : '战死江湖'}</div>
@@ -484,6 +500,38 @@ async function selectChar(name) {
   } catch(e) { console.error(e); }
 }
 
+// 移动系统
+async function checkPendingMove() {
+  if (!window._lastData || !window._lastData.pending_move) return false;
+  const pm = window._lastData.pending_move;
+  const info = window._cities;
+  const grid = document.getElementById('moveGrid');
+  document.getElementById('moveIntro').textContent = `当前位置: ${pm.city}，选择前往的目的地`;
+  grid.innerHTML = pm.routes.map(d => {
+    const ci = info && info[d] || {};
+    const badges = [];
+    if (ci.capital) badges.push('帝都');
+    if (ci.regional_center) badges.push('要冲');
+    const bHtml = badges.length ? ' <span style="color:#ffd700;">['+badges.join('+')+']</span>' : '';
+    const region = ci.region ? ' · '+ci.region : '';
+    return `<div class="move-card" onclick="executeMove('${d}')">
+      <div class="dest">${d}${bHtml}</div>
+      <div class="rinfo">${region}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('moveOverlay').classList.add('active');
+  return true;
+}
+
+async function executeMove(dest) {
+  try {
+    await fetch('/api/move', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dest})});
+    document.getElementById('moveOverlay').classList.remove('active');
+    await fetchWorld();
+    await fetchEvents();
+  } catch(e) { console.error(e); }
+}
+
 // 事件决策
 async function checkPendingEvents() {
   try {
@@ -624,7 +672,13 @@ function toggleAuto() {
 
 async function doAutoTick() {
   if (!autoTimer) return;
-  // 按优先级自动处理弹窗：事件 > 不进则退 > 任务
+  // 按优先级自动处理弹窗：移动 > 事件 > 不进则退 > 任务
+  if (document.getElementById('moveOverlay').classList.contains('active')) {
+    const mb = document.querySelector('#moveGrid .move-card:first-child');
+    if (mb) { mb.click(); }
+    setTimeout(doAutoTick, 300);
+    return;
+  }
   if (document.getElementById('eventOverlay').classList.contains('active')) {
     await autoChooseEvent();
     setTimeout(doAutoTick, 300);
