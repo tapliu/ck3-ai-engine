@@ -384,7 +384,7 @@ class World:
             attrs = {"l": target.l, "w": target.w, "i": target.i, "p": target.p}
             best_attr = max(attrs, key=attrs.get)
             best_val = attrs[best_attr]
-            gain = random.randint(5, 10) + best_val // 20
+            gain = min(10, 5 + best_val // 20)
             bonus_attr = f"bonus_{best_attr}"
             setattr(self.player_char, bonus_attr, getattr(self.player_char, bonus_attr) + gain)
             label = {"l": "机敏", "w": "武力", "i": "魅力", "p": "智谋"}[best_attr]
@@ -426,9 +426,17 @@ class World:
             for k in ("l", "w", "i", "p"):
                 setattr(char, f"bonus_{k}", getattr(char, f"bonus_{k}") - old.get(k, 0))
             char.treasures.remove(old)
+        # 单项最高10，总体最高20
+        capped = {"id": t["id"], "name": t["name"], "type": t["type"], "desc": t["desc"]}
+        total = 0
         for k in ("l", "w", "i", "p"):
-            setattr(char, f"bonus_{k}", getattr(char, f"bonus_{k}") + t.get(k, 0))
-        char.treasures.append(t)
+            val = min(10, t.get(k, 0))
+            val = min(val, 20 - total)
+            capped[k] = val
+            total += val
+        for k in ("l", "w", "i", "p"):
+            setattr(char, f"bonus_{k}", getattr(char, f"bonus_{k}") + capped[k])
+        char.treasures.append(capped)
 
     def random_treasure_event(self):
         if not TREASURES or not self.player_char:
@@ -698,7 +706,7 @@ class World:
         chance = min(95, max(5, 50 + (stat_val - task["difficulty"]) * 0.5))
         success = random.randint(1, 100) <= chance
         if success:
-            gain = 500
+            gain = 500 + int((stat_val / 100) * 500)
             self.player_char.troops += gain
             desc = f"{self.player_char.name}招募了{gain}名士兵"
             self._emit({"type": "task_success", "desc": desc})
@@ -731,8 +739,9 @@ class World:
         if random.random() < 0.3:
             recruit_chance = min(95, max(5, 50 + (npc.i - 40) * 0.5))
             if random.randint(1, 100) <= recruit_chance:
-                npc.troops += 500
-                self._emit({"type": "task_success", "desc": f"{npc.name}招募了500名士兵"})
+                gain = 500 + int((npc.i / 100) * 500)
+                npc.troops += gain
+                self._emit({"type": "task_success", "desc": f"{npc.name}招募了{gain}名士兵"})
             else:
                 self._emit({"type": "task_fail", "desc": f"{npc.name}招募士兵失败"})
             return
