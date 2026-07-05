@@ -727,6 +727,17 @@ class World:
             self._emit({"type": "move", "desc": f"{p.name}日夜兼程，从{old_city}经{via}抵达{dest}"})
             return {"ok": True, "city": dest, "action": "rush", "via": via}
 
+        # 普通移动
+        if not dest or dest not in CITY_CONNECTIONS.get(p.city, []):
+            return {"ok": False, "desc": "无法移动到该城市"}
+        old_city = p.city
+        p.city = dest
+        p.next_move_round = round_n + 2
+        self.pending_move = None
+        self._update_region(p)
+        self._emit({"type": "move", "desc": f"{p.name}从{old_city}出发，抵达{dest}"})
+        return {"ok": True, "city": dest, "action": "move"}
+
     def zhudi_move(self):
         """朱棣第70回合迁都燕京"""
         round_n = getattr(self, "engine", None) and self.engine.round or 0
@@ -741,8 +752,6 @@ class World:
         import app.models.region as region_mod
         region_mod.CAPITAL = "燕京"
         self._emit({"type": "wuxia", "desc": f"第70回合，朱棣从{old_city}迁都燕京！大明都城正式北迁！"})
-
-        # 普通移动
 
     # ---- 天下第一武道会（每30回合） ----
 
