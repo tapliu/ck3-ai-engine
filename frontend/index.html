@@ -997,8 +997,8 @@ function closeTournament() {
   document.getElementById('tournamentOverlay').classList.remove('active');
 }
 
-function portraitUrl(id) { return '/api/images/portrait/' + encodeURIComponent('01 ('+(id+1)+').png'); }
-function fullBodyUrl(id) { return '/api/images/full-body/' + encodeURIComponent('01 ('+(id+1)+').png'); }
+function portraitUrl(id) { return '/api/images/portrait/' + encodeURIComponent('01 ('+(id+1)+').webp'); }
+function fullBodyUrl(id) { return '/api/images/full-body/' + encodeURIComponent('01 ('+(id+1)+').webp'); }
 
 function showFullBody(id) {
   document.getElementById('fullbodyImg').src = fullBodyUrl(id);
@@ -1067,7 +1067,7 @@ let _mapBgImg = null;
   const img = new Image();
   img.onload = () => { _mapBgImg = img; };
   const t = Date.now();
-  img.src = '/api/data/map.png?t=' + t;
+  img.src = '/api/data/map.webp?t=' + t;
 })();
 
 function drawBattleCanvas(data) {
@@ -1093,7 +1093,7 @@ function drawBattleCanvas(data) {
         drawBattleCanvas(data);
       };
       const t = Date.now();
-  img.src = '/api/data/map.png?t=' + t;
+  img.src = '/api/data/map.webp?t=' + t;
     }
   }
 
