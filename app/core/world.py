@@ -347,12 +347,12 @@ class World:
 
     def generate_tasks(self):
         self.pending_tasks = []
-        pool = NON_CHAR_TASKS + CHAR_TASKS + COOP_TASKS + COOP_TASKS + COOP_TASKS
-        # 概率出现极难任务
+        pool = NON_CHAR_TASKS + CHAR_TASKS
         if random.random() < 0.3:
-            pool = pool + DEADLY_TASKS
-        count = random.randint(1, 2)
+            pool += DEADLY_TASKS
+        count = random.randint(1, 3)
         selected = random.sample(pool, min(count, len(pool)))
+        targets = self.alive_except_player()
         for t in selected:
             entry = {
                 "id": self.task_next_id,
@@ -362,23 +362,23 @@ class World:
                 "stat": t["stat"],
                 "difficulty": t["diff"],
             }
-            if t["tag"] == "coop":
-                targets = self.alive_except_player()
-                if not targets or not self.player_char:
-                    continue
-                # 加权：同城市 > 同区域 > 不同区域（不合作）
+            if targets and self.player_char and t["tag"] in ("char", "non_char"):
                 same_city = [c for c in targets if c.city == self.player_char.city]
                 same_region = [c for c in targets if c.region == self.player_char.region and c.city != self.player_char.city]
-                weighted = []
-                for c in same_city:
-                    weighted.extend([c] * 5)
-                for c in same_region:
-                    weighted.extend([c] * 2)
-                if not weighted:
-                    continue
-                target = random.choice(weighted)
-                entry["target"] = target.name
-                entry["desc"] = t["desc"].format(target=target.name)
+                coop_chance = 0.5 if same_city else (0.25 if same_region else 0)
+                if random.random() < coop_chance:
+                    coop_tpl = random.choice(COOP_TASKS)
+                    weighted = []
+                    for c in same_city:
+                        weighted.extend([c] * 5)
+                    for c in same_region:
+                        weighted.extend([c] * 2)
+                    target = random.choice(weighted)
+                    entry["type"] = "coop"
+                    entry["target"] = target.name
+                    entry["desc"] = coop_tpl["desc"].format(target=target.name)
+                    entry["stat"] = coop_tpl["stat"]
+                    entry["difficulty"] = coop_tpl["diff"]
             self.pending_tasks.append(entry)
             self.task_next_id += 1
 

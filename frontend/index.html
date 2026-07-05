@@ -97,6 +97,10 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .task-card-deadly { border-color:#f44336; background:linear-gradient(135deg,#2e1a1a,#16213e); box-shadow:0 0 12px rgba(244,67,54,0.3); }
 .task-deadly-icon { color:#f44336; font-weight:bold; margin-left:0.3rem; }
 .gameover-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); justify-content:center; align-items:flex-start; z-index:999; overflow-y:auto; padding:2rem; }
+.citymap-wrapper { display:flex; flex-direction:column; gap:1rem; }
+.citymap-section { background:#0f3460; border-radius:6px; padding:0.8rem; }
+.citymap-section>h3 { color:#e94560; font-size:0.95rem; margin-bottom:0.5rem; text-align:center; border-bottom:1px solid #1a1a3e; padding-bottom:0.3rem; }
+.citymap-zhongyuan-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
 .citymap-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
 .citymap-region { background:#0f3460; border-radius:6px; padding:0.8rem; }
 .citymap-region h3 { color:#e94560; font-size:0.95rem; margin-bottom:0.5rem; text-align:center; border-bottom:1px solid #1a1a3e; padding-bottom:0.3rem; }
@@ -259,7 +263,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <!-- 游戏结束 -->
 <!-- 江山舆图 -->
 <div class="overlay" id="cityMapOverlay">
-  <div class="modal" style="max-width:800px;">
+  <div class="modal" style="max-width:900px;">
     <h2>江山舆图</h2>
     <div id="cityMapContent"></div>
     <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('cityMapOverlay').classList.remove('active')">关闭</button></div>
@@ -920,23 +924,42 @@ function showCityMap() {
     if (!byRegion[r]) byRegion[r] = [];
     byRegion[r].push(city);
   }
-  const REGION_ORDER = ['中原','东海','江南','西域','塞北'];
-  let html = '<div class="citymap-grid">';
-  for (const r of REGION_ORDER) {
+  const ZHONGYUAN_LEFT = ['长安','燕京','洛阳'];
+  const ZHONGYUAN_RIGHT = ['应天府','襄阳','开封'];
+  const OTHER_REGIONS = ['东海','江南','西域','塞北'];
+  const cityHtml = (city, info) => {
+    const pop = info.population||[];
+    const badges = [];
+    if (info.capital) badges.push('帝都');
+    if (info.regional_center) badges.push('要冲');
+    const badgeHtml = badges.length ? ' <span style="color:#ffd700;font-size:0.7rem;">['+badges.join('+')+']</span>' : '';
+    const connHtml = (info.connections||[]).length ? ' → <span class="cconn">' + info.connections.join(', ')+'</span>' : '';
+    return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span class="cpop">${pop.length}人</span>${connHtml}</div>`;
+  };
+  let html = '<div style="text-align:center;margin-bottom:1rem;"><img src="/api/data/map.png" style="max-width:100%;border-radius:8px;border:1px solid #555;"></div>';
+  html += '<div class="citymap-wrapper">';
+  html += '<div class="citymap-section"><h3>中原</h3><div class="citymap-zhongyuan-grid">';
+  html += '<div class="citymap-zhongyuan-col">';
+  for (const city of ZHONGYUAN_LEFT) {
+    html += cityHtml(city, data.cities[city]);
+  }
+  html += '</div>';
+  html += '<div class="citymap-zhongyuan-col">';
+  for (const city of ZHONGYUAN_RIGHT) {
+    html += cityHtml(city, data.cities[city]);
+  }
+  html += '</div>';
+  html += '</div></div>';
+  html += '<div class="citymap-grid">';
+  for (const r of OTHER_REGIONS) {
     if (!byRegion[r]) continue;
     html += `<div class="citymap-region"><h3>${r}</h3>`;
     for (const city of byRegion[r]) {
-      const info = data.cities[city];
-      const pop = info.population||[];
-      const badges = [];
-      if (info.capital) badges.push('帝都');
-      if (info.regional_center) badges.push('要冲');
-      const badgeHtml = badges.length ? ' <span style="color:#ffd700;font-size:0.7rem;">['+badges.join('+')+']</span>' : '';
-      const connHtml = (info.connections||[]).length ? ' → <span class="cconn">' + info.connections.join(', ')+'</span>' : '';
-      html += `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span class="cpop">${pop.length}人</span>${connHtml}</div>`;
+      html += cityHtml(city, data.cities[city]);
     }
     html += '</div>';
   }
+  html += '</div>';
   html += '</div>';
   document.getElementById('cityMapContent').innerHTML = html;
   document.getElementById('cityMapOverlay').classList.add('active');
