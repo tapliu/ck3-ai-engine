@@ -2,7 +2,9 @@ import os
 import random
 from collections import defaultdict
 from app.models.character import Character
-from app.models.region import CITIES, ALL_CITIES, CAPITAL, REGIONAL_CENTERS, REGIONAL_CENTER_GATES, CITY_CONNECTIONS, get_city_info
+from app.models.region import CITIES, ALL_CITIES, CAPITAL, REGIONAL_CENTERS, REGIONAL_CENTER_GATES, CITY_CONNECTIONS, get_city_info, CityState
+from app.core.battle import sim_battle
+from app.core.economy import try_expand, conquer_city
 
 STAT_FIELDS = ["base_l", "base_w", "base_i", "base_p"]
 STAT_LABELS = {"base_l":"机敏","base_w":"武力","base_i":"魅力","base_p":"智谋"}
@@ -80,6 +82,10 @@ TITLE_RULES = [
 
 class World:
     def __init__(self):
+        self._init_state()
+        self._init_chars_and_cities()
+
+    def _init_state(self):
         self.characters = {}
         self.rel = defaultdict(dict)
         self.next_id = 0
@@ -95,7 +101,17 @@ class World:
         self.history = []
         self.titles_awarded = set()
         self.pending_move = None
+        self._event_counter = 0
 
+        # 城池状态
+        from app.models.region import CITY_CONNECTIONS as _CONN
+        self.city_connections = _CONN
+        self.city_states = {}
+        for region, cities in CITIES.items():
+            for city in cities:
+                self.city_states[city] = CityState(city, region)
+
+    def _init_chars_and_cities(self):
         for d in DATA:
             self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""), d.get("age", 20))
         # 均衡分配城市
@@ -108,11 +124,19 @@ class World:
                 continue
             for i, c in enumerate(chars):
                 c.city = region_cities[i % len(region_cities)]
-        # 朱棣初始在应天府（帝都）
+        # 朱棣初始在应天府（帝都）并拥有城池
         zd = self.get("朱棣")
         if zd:
             zd.city = "应天府"
             zd.region = "中原"
+            zd.troops = 8000
+            zd.controlled_cities = ["应天府"]
+            if "应天府" in self.city_states:
+                self.city_states["应天府"].controller = zd.id
+
+    def new_game(self):
+        self._init_state()
+        self._init_chars_and_cities()
 
     def create(self, gender, name, l, w, i, p, desc="", age=20):
         c = Character(self.next_id, name, gender, l, w, i, p, desc, age)
@@ -212,6 +236,13 @@ class World:
             pop = [c.name for c in self.alive() if c.city == city]
             cities_info[city]["population"] = pop
             cities_info[city]["count"] = len(pop)
+            cs = self.city_states.get(city)
+            if cs:
+                cities_info[city]["development"] = round(cs.development, 1)
+                cities_info[city]["pop_num"] = cs.population
+                cities_info[city]["garrison"] = cs.garrison
+                cities_info[city]["controller"] = cs.controller
+                cities_info[city]["terrain"] = cs.terrain
         return {
             "round": getattr(self, "engine", None) and self.engine.round or 0,
             "player": self.player_char.to_dict() if self.player_char else None,
@@ -228,6 +259,12 @@ class World:
         if c:
             self.player_char = c
             c.init_stats()
+            home = c.city
+            if home and home in self.city_states and self.city_states[home].controller is None:
+                self.city_states[home].controller = c.id
+                if home not in c.controlled_cities:
+                    c.controlled_cities.append(home)
+                    c.troops = max(c.troops, 2000)
         return self.player_char
 
     def _check_titles(self):
@@ -263,10 +300,13 @@ class World:
 
     def _emit(self, evt):
         bus = getattr(self, "engine", None)
+        round_n = getattr(self, "engine", None) and self.engine.round or 0
+        evt["round"] = round_n
+        self._event_counter = getattr(self, '_event_counter', 0) + 1
+        evt["id"] = f"e{self._event_counter}"
         if bus:
             bus.bus.emit(evt)
         if self.player_char:
-            round_n = getattr(self, "engine", None) and self.engine.round or 0
             self.history.append({"round": round_n, "type": evt.get("type"), "desc": evt.get("desc", "")})
 
     def do_apprentice(self, target_name):
@@ -382,6 +422,21 @@ class World:
             self.pending_tasks.append(entry)
             self.task_next_id += 1
 
+        # 玩家拥有城池时，添加扩张任务
+        if self.player_char and self.player_char.controlled_cities:
+            target_city = try_expand(self, self.player_char)
+            if target_city:
+                self.pending_tasks.append({
+                    "id": self.task_next_id,
+                    "name": "攻城略地",
+                    "desc": f"出兵攻打{target_city}，扩张势力范围",
+                    "type": "expansion",
+                    "stat": "w",
+                    "difficulty": 60,
+                    "_target_city": target_city,
+                })
+                self.task_next_id += 1
+
     def pending_task_data(self):
         if not self.player_char:
             return []
@@ -416,6 +471,11 @@ class World:
         if mode == "focus" and self.player_char.focus_cooldown_round > round_n:
             return {"success": False, "desc": f"全力施展需冷却至第{self.player_char.focus_cooldown_round}回合，当前第{round_n}回合"}
         stat_val = getattr(self.player_char, task["stat"])
+        # 扩张任务使用战斗系统
+        if task["type"] == "expansion":
+            self.pending_tasks = []
+            return self._execute_expansion_task(task)
+
         if mode == "focus":
             chance = min(95, max(5, 50 + (stat_val - task["difficulty"]) * 0.75))
         else:
@@ -483,6 +543,42 @@ class World:
             desc_parts.append(f"失败！{penalty['desc']}")
             self._emit({"type": "task_fail", "desc": "".join(desc_parts)})
             return {"success": False, "desc": "".join(desc_parts), "penalty": penalty}
+
+    def _execute_expansion_task(self, task):
+        target_city = task.get("_target_city")
+        if not target_city:
+            return {"success": False, "desc": "目标城池不存在"}
+        city_state = self.city_states.get(target_city)
+        if not city_state:
+            return {"success": False, "desc": f"{target_city}不存在"}
+
+        defender = None
+        if city_state.controller:
+            defender = self.characters.get(city_state.controller)
+
+        if defender and defender.alive:
+            result = sim_battle(self.player_char, defender, target_city, self)
+            victory = result["result"] == "attacker_win"
+            if victory:
+                conquer_city(self, self.player_char, target_city, result)
+                self._emit({
+                    "type": "battle",
+                    "desc": f"{self.player_char.name}攻占{target_city}！击败了{defender.name}",
+                    "battle_result": result,
+                })
+                for log in result["logs"][:3]:
+                    self._emit({"type": "battle_log", "desc": log, "battle_result": result})
+                return {"success": True, "desc": f"攻占{target_city}！{result['logs'][-1]}", "battle_result": result}
+            else:
+                self._emit({
+                    "type": "battle",
+                    "desc": f"{self.player_char.name}攻打{target_city}失败（vs {defender.name}）",
+                    "battle_result": result,
+                })
+                return {"success": False, "desc": f"攻打{target_city}失败！{result['logs'][-1]}", "battle_result": result}
+        else:
+            conquer_city(self, self.player_char, target_city, None)
+            return {"success": True, "desc": f"兵不血刃占领{target_city}！"}
 
     def _grant_task_reward(self, deadly=False):
         stats = ["bonus_l", "bonus_w", "bonus_i", "bonus_p"]
@@ -684,6 +780,8 @@ class World:
         if not getattr(self, "engine", None):
             return
         round_n = self.engine.round
+        npc_stays = []
+        npc_moves = defaultdict(list)
         for c in self.alive():
             if c.next_move_round > round_n:
                 continue
@@ -709,42 +807,44 @@ class World:
                     "two_step_cities": list(two_step_map.keys()),
                 }
             else:
-                # NPC行为：20%停留 60%移动 20%日夜兼程
                 r = random.random()
                 if r < 0.2:
                     c.next_move_round = round_n + 2
-                    self._emit({"type": "move", "desc": f"{c.name}选择在{c.city}停留修整"})
+                    npc_stays.append(c.name)
                 elif r < 0.8:
                     dest = random.choice(routes)
-                    old_city = c.city
                     c.city = dest
                     c.next_move_round = round_n + 2
                     self._update_region(c)
-                    self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
+                    npc_moves[dest].append(c.name)
                 elif c.rush_cooldown_round <= round_n:
                     two_step = self._two_step_destinations(c.city)
                     if two_step:
                         via, dest = random.choice(two_step)
-                        old_city = c.city
                         c.city = dest
                         c.next_move_round = round_n + 2
                         c.rush_cooldown_round = round_n + 3
                         self._update_region(c)
-                        self._emit({"type": "move", "desc": f"{c.name}日夜兼程，从{old_city}经{via}抵达{dest}"})
+                        npc_moves[dest].append(c.name)
                     else:
                         dest = random.choice(routes)
-                        old_city = c.city
                         c.city = dest
                         c.next_move_round = round_n + 2
                         self._update_region(c)
-                        self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
+                        npc_moves[dest].append(c.name)
                 else:
                     dest = random.choice(routes)
-                    old_city = c.city
                     c.city = dest
                     c.next_move_round = round_n + 2
                     self._update_region(c)
-                    self._emit({"type": "move", "desc": f"{c.name}从{old_city}出发，抵达{dest}"})
+                    npc_moves[dest].append(c.name)
+        # 批量输出移动日志
+        for dest, names in npc_moves.items():
+            label = "、" . join(names)
+            self._emit({"type": "move", "desc": f"{label}前往{dest}"})
+        if npc_stays:
+            label = "、" . join(npc_stays)
+            self._emit({"type": "move", "desc": f"{label}选择在各自所在城市停留修整"})
 
     def execute_move(self, dest=None, action="move"):
         if not self.player_char or not self.pending_move:
@@ -813,99 +913,118 @@ class World:
         ra, rb = a.w + random.randint(-10, 10), b.w + random.randint(-10, 10)
         return (a, b) if ra >= rb else (b, a)
 
+    def _run_group(self, players, group_name):
+        n = len(players)
+        random.shuffle(players)
+        m = []
+        if n == 1:
+            p = players[0]
+            gd = {"name": group_name, "players": [p.name], "matches": [], "results": {"第一名": p.name}}
+            return gd, p, None
+        elif n == 2:
+            w, l = self._tournament_fight(players[0], players[1])
+            m.append({"round": "决胜", "a": players[0].name, "b": players[1].name, "winner": w.name})
+            gd = {"name": group_name, "players": [p.name for p in players], "matches": m, "results": {"第一名": w.name, "第二名": l.name}}
+            return gd, w, l
+        elif n == 3:
+            w1, l1 = self._tournament_fight(players[0], players[1])
+            m.append({"round": "第一轮", "a": players[0].name, "b": players[1].name, "winner": w1.name})
+            fw, fl = self._tournament_fight(w1, players[2])
+            m.append({"round": "决赛", "a": w1.name, "b": players[2].name, "winner": fw.name})
+            gd = {"name": group_name, "players": [p.name for p in players], "matches": m, "results": {"第一名": fw.name, "第二名": fl.name}}
+            return gd, fw, fl
+        else:
+            w1, l1 = self._tournament_fight(players[0], players[1])
+            w2, l2 = self._tournament_fight(players[2], players[3])
+            m.append({"round": "第一轮", "a": players[0].name, "b": players[1].name, "winner": w1.name})
+            m.append({"round": "第一轮", "a": players[2].name, "b": players[3].name, "winner": w2.name})
+            wf_w, wf_l = self._tournament_fight(w1, w2)
+            m.append({"round": "胜者组决赛", "a": w1.name, "b": w2.name, "winner": wf_w.name})
+            lf_w, lf_l = self._tournament_fight(l1, l2)
+            m.append({"round": "败者组决赛", "a": l1.name, "b": l2.name, "winner": lf_w.name})
+            f_w, f_l = self._tournament_fight(wf_l, lf_w)
+            m.append({"round": "决胜轮", "a": wf_l.name, "b": lf_w.name, "winner": f_w.name})
+            gd = {"name": group_name, "players": [p.name for p in players], "matches": m, "results": {"第一名": wf_w.name, "第二名": f_w.name}}
+            return gd, wf_w, f_w
+
+    def _run_knockout(self, participants, round_label):
+        random.shuffle(participants)
+        matches = []
+        winners = []
+        for i in range(0, len(participants) - 1, 2):
+            a, b = participants[i], participants[i + 1]
+            w, l = self._tournament_fight(a, b)
+            matches.append({"a": a.name, "b": b.name, "winner": w.name})
+            winners.append(w)
+        if len(participants) % 2 == 1:
+            winners.append(participants[-1])
+        return {"round": round_label, "matches": matches}, winners
+
     def maybe_start_tournament(self):
         if not getattr(self, "engine", None) or self.engine.round % 30 != 0:
             return
         chars = sorted(self.alive(), key=lambda c: c.xia_yi, reverse=True)[:16]
-        if len(chars) < 4:
+        if len(chars) < 2:
             self._emit({"type": "tournament", "desc": "天下第一武道会参与者不足，取消举办"})
             return
-        # 调整人数为4的倍数，确保每组人数相等
-        chars = chars[:len(chars) - len(chars) % 4]
-        random.shuffle(chars)
-        group_names = ["甲", "乙", "丙", "丁"]
-        group_size = len(chars) // 4
-        groups = [{"name": group_names[gi], "players": chars[gi*group_size:(gi+1)*group_size]} for gi in range(4)]
         self._emit({"type": "tournament", "desc": f"天下第一武道会开幕！{len(chars)}名高手齐聚一堂"})
 
-        group_winners, group_runners = [], []
-        for g in groups:
-            players = g["players"]
-            random.shuffle(players)
-            m = []
-            # 第一轮：随机配对
-            w1, l1 = self._tournament_fight(players[0], players[1])
-            w2, l2 = self._tournament_fight(players[2], players[3])
-            m.append({"round":"第一轮","a":players[0].name,"b":players[1].name,"winner":w1.name})
-            m.append({"round":"第一轮","a":players[2].name,"b":players[3].name,"winner":w2.name})
-            # 胜者组决赛 → 小组第一出线
-            wf_w, wf_l = self._tournament_fight(w1, w2)
-            m.append({"round":"胜者组决赛","a":w1.name,"b":w2.name,"winner":wf_w.name})
-            # 败者组决赛
-            lf_w, lf_l = self._tournament_fight(l1, l2)
-            m.append({"round":"败者组决赛","a":l1.name,"b":l2.name,"winner":lf_w.name})
-            # 决胜轮：胜者组决赛败方 vs 败者组决赛胜方 → 小组第二出线
-            f_w, f_l = self._tournament_fight(wf_l, lf_w)
-            m.append({"round":"决胜轮","a":wf_l.name,"b":lf_w.name,"winner":f_w.name})
-            g["matches"] = m
-            g["results"] = {"第一名": wf_w.name, "第二名": f_w.name}
-            group_winners.append(wf_w)
-            group_runners.append(f_w)
+        if len(chars) >= 12:
+            chars = chars[:len(chars) - len(chars) % 4]
+            random.shuffle(chars)
+            group_names = ["甲", "乙", "丙", "丁"]
+            group_size = len(chars) // 4
+            groups = [chars[gi*group_size:(gi+1)*group_size] for gi in range(4)]
+            group_datas = []
+            group_winners, group_runners = [], []
+            for gi in range(4):
+                gd, w, r = self._run_group(groups[gi], group_names[gi])
+                group_datas.append(gd)
+                group_winners.append(w)
+                group_runners.append(r)
+            quarter_pairs = []
+            for i in range(4):
+                a = group_winners[i]
+                b = group_runners[(i + 1) % 4]
+                if a and b:
+                    quarter_pairs.append((a, b))
+            knockout = []
+            current = []
+            qf_matches = []
+            for a, b in quarter_pairs:
+                winner, loser = self._tournament_fight(a, b)
+                qf_matches.append({"a": a.name, "b": b.name, "winner": winner.name})
+                current.append(winner)
+            knockout.append({"round": "8强", "matches": qf_matches})
+            r1, current2 = self._run_knockout(current, "半决赛")
+            knockout.append(r1)
+            sf_pairs = current2
+            champion = None
+            if len(sf_pairs) >= 2:
+                a, b = sf_pairs[0], sf_pairs[1]
+                winner, loser = self._tournament_fight(a, b)
+                knockout.append({"round": "决赛", "matches": [{"a": a.name, "b": b.name, "winner": winner.name}]})
+                champion = winner
+            elif len(sf_pairs) == 1:
+                champion = sf_pairs[0]
+            self.tournament = {"active": True, "groups": group_datas, "knockout": knockout, "champion": champion.name if champion else None}
+        else:
+            random.shuffle(chars)
+            rounds = []
+            current = chars
+            round_names = {16: "16强", 8: "8强", 4: "半决赛", 2: "决赛"}
+            while len(current) > 1:
+                k = len(current)
+                lb = round_names.get(k, f"第{len(rounds)+1}轮")
+                r, winners = self._run_knockout(current, lb)
+                rounds.append(r)
+                current = winners
+            champion = current[0] if current else None
+            self.tournament = {"active": True, "groups": [], "knockout": rounds, "champion": champion.name if champion else None}
 
-        # 8强：小组第一 vs 其他组第二（交叉配对）
-        knockout = []
-        quarter_pairs = []
-        for i in range(len(group_names)):
-            wi = i
-            ri = (i + 1) % len(group_names)
-            a = group_winners[wi] if wi < len(group_winners) else None
-            b = group_runners[ri] if ri < len(group_runners) else None
-            if a and b:
-                quarter_pairs.append((a, b))
-
-        if len(quarter_pairs) < 2:
-            self._emit({"type": "tournament", "desc": "武道会8强人数不足，取消决赛"})
-            self.tournament = {"groups": [{"name": g["name"], "players": [p.name for p in g["players"]], "matches": g["matches"], "results": g["results"]} for g in groups], "knockout": [], "champion": None}
-            return
-
-        current = []
-        qf_matches = []
-        for a, b in quarter_pairs:
-            winner, loser = self._tournament_fight(a, b)
-            qf_matches.append({"a": a.name, "b": b.name, "winner": winner.name})
-            current.append(winner)
-        knockout.append({"round": "8强", "matches": qf_matches})
-
-        # 半决赛
-        semi_pairs = []
-        for i in range(0, len(current), 2):
-            if i + 1 < len(current):
-                semi_pairs.append((current[i], current[i + 1]))
-        current2 = []
-        sf_matches = []
-        for a, b in semi_pairs:
-            winner, loser = self._tournament_fight(a, b)
-            sf_matches.append({"a": a.name, "b": b.name, "winner": winner.name})
-            current2.append(winner)
-        if sf_matches:
-            knockout.append({"round": "半决赛", "matches": sf_matches})
-
-        # 决赛
         champion = None
-        if len(current2) >= 2:
-            a, b = current2[0], current2[1]
-            winner, loser = self._tournament_fight(a, b)
-            knockout.append({"round": "决赛", "matches": [{"a": a.name, "b": b.name, "winner": winner.name}]})
-            champion = winner
-        elif len(current2) == 1:
-            champion = current2[0]
-
-        self.tournament = {
-            "active": True,
-            "groups": [{"name": g["name"], "players": [p.name for p in g["players"]], "matches": g["matches"], "results": g["results"]} for g in groups],
-            "knockout": knockout,
-            "champion": champion.name if champion else None,
-        }
+        if self.tournament and self.tournament.get("champion"):
+            champion = self.get(self.tournament["champion"])
 
         if champion:
             champion.title = "天下第一人"

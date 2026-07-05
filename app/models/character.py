@@ -39,6 +39,12 @@ class Character:
 
         self.memory = []
 
+        # 军事
+        self.troops = 500
+        self.morale = 50
+        self.training = 30
+        self.controlled_cities = []
+
         self._init_l = self.l
         self._init_w = self.w
         self._init_i = self.i
@@ -104,6 +110,10 @@ class Character:
             "scheme_cooldown_round": self.scheme_cooldown_round,
             "focus_cooldown_round": self.focus_cooldown_round,
             "rush_cooldown_round": self.rush_cooldown_round,
+            "troops": self.troops,
+            "morale": self.morale,
+            "training": self.training,
+            "controlled_cities": self.controlled_cities,
             "memory": self.memory[-5:],
             "init_l": self._init_l,
             "init_w": self._init_w,

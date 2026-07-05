@@ -59,7 +59,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .events { background:#16213e; border-radius:8px; padding:1rem; max-height:600px; overflow-y:auto; position:sticky; top:1rem; }
 .events h2 { margin-bottom:0.5rem; color:#e94560; font-size:1rem; }
 .event-item { padding:0.35rem 0; border-bottom:1px solid #0f3460; font-size:0.85rem; }
-.event-round { color:#e94560; font-weight:bold; margin-right:0.4rem; }
+.event-round { color:#e94560; font-weight:bold; margin-right:0.4rem; font-size:0.75rem; }
 .event-treasure { color:#f0a0b0; }
 .event-wuxia { color:#80c0e0; }
 .event-combat { color:#ff6b35; }
@@ -282,12 +282,20 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
     <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('cityPeopleOverlay').classList.remove('active')">关闭</button></div>
   </div>
 </div>
+<!-- 战报弹窗 -->
+<div class="overlay" id="battleReportOverlay">
+  <div class="modal" style="max-width:700px;">
+    <h2>战报</h2>
+    <div id="battleReportContent"></div>
+    <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('battleReportOverlay').classList.remove('active')">关闭</button></div>
+  </div>
+</div>
 
 <div class="gameover-overlay" id="gameoverOverlay">
   <div class="gameover-box">
     <div id="settlementContent"></div>
     <div style="text-align:center;margin-top:1.5rem;">
-      <button onclick="location.reload()">重新开始</button>
+      <button onclick="newGame()">重新开始</button>
     </div>
   </div>
 </div>
@@ -348,8 +356,12 @@ async function tick() {
       const hasEvent = await checkPendingEvents();
       if (!hasEvent) {
         const hasDecay = await checkDecay();
-        if (!hasDecay) await checkPendingTasks();
+        if (!hasDecay) {}
       }
+    }
+    // 任务独立检测，不受移动/事件/衰减阻塞
+    if (!document.querySelector('.overlay.active')) {
+      await checkPendingTasks();
     }
   } catch(e) { console.error(e); }
   btn.disabled = false;
@@ -360,10 +372,17 @@ async function fetchEvents() {
     const r = await fetch('/api/events');
     const data = await r.json();
     const log = document.getElementById('eventLog');
-    const TYPE_CLASS = {'treasure':'event-treasure','wuxia':'event-wuxia','combat':'event-combat','cooperation':'event-cooperation','task_success':'event-task_success','task_fail':'event-task_fail','decay':'event-decay','tournament':'event-tournament','death':'event-death','move':'event-wuxia'};
+    const TYPE_CLASS = {'treasure':'event-treasure','wuxia':'event-wuxia','combat':'event-combat','cooperation':'event-cooperation','task_success':'event-task_success','task_fail':'event-task_fail','decay':'event-decay','tournament':'event-tournament','death':'event-death','move':'event-wuxia','battle':'event-combat','conquest':'event-treasure','battle_log':'event-wuxia'};
+    data.forEach(e => {
+      if (e.id && (e.type === 'battle' || e.type === 'conquest')) {
+        _eventStore[e.id] = e;
+      }
+    });
     log.innerHTML = data.map(e => {
       const cls = TYPE_CLASS[e.type]||'';
-      return `<div class="event-item ${cls}"><span class="event-round">[${e.round||'?'}]</span>${e.desc}</div>`;
+      const clickable = e.type === 'battle' || e.type === 'conquest';
+      const onclick = clickable ? ` onclick="showBattleReport('${e.id||''}')" style="cursor:pointer;"` : '';
+      return `<div class="event-item ${cls}"${onclick}><span class="event-round">[第${e.round||'?'}回]</span>${clickable ? '<span style="color:#ff6b35;font-weight:bold;">⚔ </span>' : ''}${e.desc}</div>`;
     }).join('') + log.innerHTML;
   } catch(e) { console.error(e); }
 }
@@ -452,6 +471,12 @@ function render(data) {
           }).join('')}
         </div>
         <div class="xia-yi">侠义值: ${p.xia_yi||0}${p.title ? ' · 称号: '+p.title : ''}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin:0.3rem 0;">
+          ${p.troops !== undefined ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#ff6b35;font-size:0.8rem;">兵:${p.troops}</span>` : ''}
+          ${p.morale !== undefined ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#4caf50;font-size:0.8rem;">士气:${p.morale}</span>` : ''}
+          ${p.training !== undefined ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#e040fb;font-size:0.8rem;">训练:${p.training}</span>` : ''}
+          ${(p.controlled_cities||[]).length ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#ffd700;font-size:0.8rem;">城:${p.controlled_cities.join(',')}</span>` : ''}
+        </div>
         <div class="rels">${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
         <div class="rels" style="margin-top:0.3rem;">${(p.treasures||[]).map(t => `<span class="treasure" data-treasure='${JSON.stringify(t).replace(/'/g,"\\'")}' onclick="showTreasure(this)">${t.name}</span>`).join('')}</div>
       </div>`;
@@ -497,6 +522,12 @@ function render(data) {
       </div>
       <div style="color:#888;font-size:0.8rem;margin:0.3rem 0;">好感: <span style="color:${(c.rel||0)>=0?'#4caf50':'#f44336'};font-weight:bold;">${(c.rel||0)>=0?'+':''}${c.rel||0}</span></div>
       <div class="xia-yi">侠义值: ${c.xia_yi||0}${c.title ? ' · 称号: '+c.title : ''}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin:0.3rem 0;">
+        ${c.troops !== undefined ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#ff6b35;font-size:0.75rem;">兵:${c.troops}</span>` : ''}
+        ${c.morale !== undefined ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#4caf50;font-size:0.75rem;">士气:${c.morale}</span>` : ''}
+        ${c.training !== undefined ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#e040fb;font-size:0.75rem;">训练:${c.training}</span>` : ''}
+        ${(c.controlled_cities||[]).length ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#ffd700;font-size:0.75rem;">城:${c.controlled_cities.join(',')}</span>` : ''}
+      </div>
       <div>${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
       <div>${(c.treasures||[]).map(t => `<span class="treasure" data-treasure='${JSON.stringify(t).replace(/'/g,"\\'")}' onclick="showTreasure(this)">${t.name}</span>`).join('')}</div>
       <div class="${c.alive?'alive':'dead'}">${c.alive?'存活':'已死亡'}</div>
@@ -534,11 +565,23 @@ async function loadSelect() {
   } catch(e) { console.error(e); }
 }
 
+async function newGame() {
+  try {
+    await fetch('/api/new_game', {method:'POST'});
+    document.getElementById('gameoverOverlay').classList.remove('active');
+    document.getElementById('selectOverlay').classList.add('active');
+    document.getElementById('eventLog').innerHTML = '';
+    await loadSelect();
+  } catch(e) { console.error(e); }
+}
+
 async function selectChar(name) {
   try {
     await fetch('/api/start/select', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
     document.getElementById('selectOverlay').classList.remove('active');
+    document.getElementById('gameoverOverlay').classList.remove('active');
     document.getElementById('tickBtn').disabled = false;
+    document.getElementById('eventLog').innerHTML = '';
     await fetchWorld();
   } catch(e) { console.error(e); }
 }
@@ -609,6 +652,7 @@ async function executeMove(dest, action) {
     document.getElementById('moveOverlay').classList.remove('active');
     await fetchWorld();
     await fetchEvents();
+    await checkPendingTasks();
   } catch(e) { console.error(e); }
 }
 
@@ -948,9 +992,14 @@ function showCityMap() {
     const badgeHtml = badges.length ? ' <span style="color:#ffd700;font-size:0.7rem;">['+badges.join('+')+']</span>' : '';
     const connHtml = (info.connections||[]).length ? ' → <span class="cconn">' + info.connections.join(', ')+'</span>' : '';
     const popHtml = pop.length ? `<span class="cpop" onclick="showCityPeople('${city}')" style="cursor:pointer;text-decoration:underline dotted;">${pop.length}人</span>` : `<span class="cpop">${pop.length}人</span>`;
-    return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}${popHtml}${connHtml}</div>`;
+    const dev = info.development !== undefined ? ` 开发${info.development}` : '';
+    const gar = info.garrison !== undefined ? ` 驻军${info.garrison}` : '';
+    const ctrl = info.controller ? ` 控制:${data.characters?.find(c=>c.id===info.controller)?.name||info.controller}` : '';
+    return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span style="color:#888;font-size:0.7rem;">${dev}${gar}</span>${ctrl ? '<br><span style="color:#e94560;font-size:0.7rem;">'+ctrl+'</span>' : ''}<br>${popHtml}${connHtml}</div>`;
   };
-  let html = '<div style="text-align:center;margin-bottom:1rem;"><img src="/api/data/map.png" style="max-width:100%;border-radius:8px;border:1px solid #555;"></div>';
+  let html = '<div style="text-align:center;margin-bottom:1rem;position:relative;">';
+  html += '<canvas id="battleCanvas" width="800" height="500" style="max-width:100%;border-radius:8px;border:1px solid #555;background:#0f0f23;display:block;margin:0 auto;"></canvas>';
+  html += '</div>';
   html += '<div class="citymap-wrapper">';
   html += '<div class="citymap-section"><h3>中原</h3><div class="citymap-zhongyuan-grid">';
   html += '<div class="citymap-zhongyuan-col">';
@@ -976,7 +1025,104 @@ function showCityMap() {
   html += '</div>';
   html += '</div>';
   document.getElementById('cityMapContent').innerHTML = html;
+  drawBattleCanvas(data);
   document.getElementById('cityMapOverlay').classList.add('active');
+}
+
+let _mapBgImg = null;
+(function preloadMapBg() {
+  const img = new Image();
+  img.onload = () => { _mapBgImg = img; };
+  img.src = '/api/data/map.png';
+})();
+
+function drawBattleCanvas(data) {
+  const canvas = document.getElementById('battleCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 800, H = 500;
+  ctx.clearRect(0, 0, W, H);
+
+  // 绘制地图背景
+  if (_mapBgImg && _mapBgImg.complete && _mapBgImg.naturalWidth > 0) {
+    ctx.drawImage(_mapBgImg, 0, 0, W, H);
+    ctx.fillStyle = 'rgba(15,15,35,0.3)';
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    ctx.fillStyle = '#0f0f23';
+    ctx.fillRect(0, 0, W, H);
+    // 图片未加载时重试
+    if (!_mapBgImg || !_mapBgImg.complete) {
+      const img = new Image();
+      img.onload = () => {
+        _mapBgImg = img;
+        drawBattleCanvas(data);
+      };
+      img.src = '/api/data/map.png';
+    }
+  }
+
+  // 城池坐标
+  const CITY_POS = {
+    '应天府': [400, 220], '洛阳': [300, 160], '开封': [380, 160],
+    '长安': [200, 130], '燕京': [400, 80], '襄阳': [330, 260],
+    '苏州': [420, 340], '杭州': [480, 370], '扬州': [520, 330],
+    '凉州': [160, 60], '朔方': [220, 30], '云中': [340, 40],
+    '敦煌': [80, 120], '龟兹': [40, 180], '于阗': [100, 240],
+    '泉州': [560, 400], '宁波': [620, 360], '登州': [530, 280],
+  };
+
+  // 绘制连接线
+  ctx.strokeStyle = 'rgba(200,200,255,0.25)';
+  ctx.lineWidth = 1.5;
+  if (data.cities) {
+    Object.entries(data.cities).forEach(([city, info]) => {
+      if (!info.connections) return;
+      const [x1, y1] = CITY_POS[city] || [0, 0];
+      info.connections.forEach(nei => {
+        const [x2, y2] = CITY_POS[nei] || [0, 0];
+        if (!x2) return;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      });
+    });
+  }
+
+  // 绘制城池
+  Object.entries(CITY_POS).forEach(([city, [x, y]]) => {
+    const info = data.cities && data.cities[city];
+    const controller = info && info.controller;
+    const isControlled = controller !== null && controller !== undefined;
+    const controllerChar = isControlled && data.characters ? data.characters.find(c => c.id === controller) : null;
+
+    const radius = city === '应天府' ? 10 : 8;
+    ctx.fillStyle = isControlled ? (controllerChar && controllerChar.name === data.player?.name ? '#4caf50' : '#e94560') : '#777';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 3;
+    ctx.fillText(city, x, y - radius - 6);
+    ctx.shadowBlur = 0;
+
+    if (controllerChar) {
+      ctx.fillStyle = '#ffd700';
+      ctx.font = '9px sans-serif';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(controllerChar.name, x, y + radius + 14);
+      ctx.shadowBlur = 0;
+    }
+  });
 }
 
 function showCityPeople(city) {
@@ -1009,6 +1155,62 @@ function showCityPeople(city) {
   html += '</div>';
   document.getElementById('cityPeopleContent').innerHTML = html;
   document.getElementById('cityPeopleOverlay').classList.add('active');
+}
+
+let _eventStore = {};
+function showBattleReport(eventId) {
+  const e = _eventStore[eventId];
+  if (!e || !e.battle_result) {
+    document.getElementById('battleReportContent').innerHTML = '<div style="color:#888;">暂无详细战报</div>';
+    document.getElementById('battleReportOverlay').classList.add('active');
+    return;
+  }
+  const b = e.battle_result;
+  let html = `<div style="margin-bottom:1rem;padding:0.8rem;background:#1a1a3e;border-radius:8px;border-left:4px solid ${b.result === 'attacker_win' ? '#4caf50' : b.result === 'draw' ? '#ff9800' : '#f44336'};">
+    <div style="font-size:1.1rem;font-weight:bold;margin-bottom:0.3rem;">
+      ${b.result === 'attacker_win' ? '🏆 攻击方胜利' : b.result === 'draw' ? '⚖️ 平局' : '🛡️ 防守方胜利'}
+    </div>
+    <div style="color:#aaa;font-size:0.85rem;">
+      ${b.winner ? `胜利: ${b.winner}` : ''} ${b.loser ? ` | 败北: ${b.loser}` : ''}
+    </div>
+  </div>`;
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">';
+  html += `<div style="background:#16213e;padding:0.6rem;border-radius:6px;">
+    <div style="color:#ff6b35;font-weight:bold;">攻击方</div>
+    <div style="color:#ccc;">战术: ${b.att_tactic}</div>
+    <div style="color:#ccc;">战力: ${b.battles?.[0]?.att_troops_remaining !== undefined ? '—' : ''}</div>
+    <div style="color:#f44336;">损失: ${b.att_loss}</div>
+  </div>`;
+  html += `<div style="background:#16213e;padding:0.6rem;border-radius:6px;">
+    <div style="color:#4caf50;font-weight:bold;">防守方</div>
+    <div style="color:#ccc;">战术: ${b.def_tactic}</div>
+    <div style="color:#ccc;">地形倍率: ${b.tactic_mod}</div>
+    <div style="color:#f44336;">损失: ${b.def_loss}</div>
+  </div>`;
+  html += '</div>';
+  if (b.battles && b.battles.length) {
+    html += '<h3 style="color:#e94560;margin-bottom:0.5rem;font-size:0.9rem;">回合详情</h3>';
+    html += '<div style="max-height:200px;overflow-y:auto;">';
+    b.battles.forEach(r => {
+      html += `<div style="display:flex;justify-content:space-between;padding:0.3rem 0.5rem;border-bottom:1px solid #1a1a3e;font-size:0.8rem;">
+        <span style="color:#888;">第${r.round}回合</span>
+        <span style="color:#f44336;">攻击方 -${r.att_loss}</span>
+        <span style="color:#4caf50;">防守方 -${r.def_loss}</span>
+        <span style="color:#aaa;">剩余: ${r.att_troops_remaining} vs ${r.def_troops_remaining}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  if (b.logs) {
+    html += '<h3 style="color:#e94560;margin:0.5rem 0;font-size:0.9rem;">战报日志</h3>';
+    html += '<div style="background:#0f0f23;padding:0.5rem;border-radius:6px;">';
+    b.logs.forEach(l => {
+      html += `<div style="color:#aaa;font-size:0.8rem;padding:0.15rem 0;">${l}</div>`;
+    });
+    html += '</div>';
+  }
+  document.getElementById('battleReportContent').innerHTML = html;
+  document.getElementById('battleReportOverlay').classList.add('active');
 }
 
 loadSelect();

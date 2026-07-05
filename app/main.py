@@ -52,6 +52,12 @@ class SelectPlayer(BaseModel):
     name: str
 
 
+@app.post("/api/new_game")
+def new_game():
+    world.new_game()
+    engine.reset()
+    return {"ok": True}
+
 @app.post("/api/start/select")
 def select_player(body: SelectPlayer):
     c = world.set_player(body.name)
