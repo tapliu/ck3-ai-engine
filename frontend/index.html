@@ -31,7 +31,8 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .treasure { display:inline-block; background:#3a1a2e; border:1px solid #e94560; border-radius:4px; padding:0.15rem 0.5rem; font-size:0.75rem; margin-right:0.2rem; margin-bottom:0.2rem; color:#f0a0b0; }
 
 .layout { display:flex; gap:1.5rem; }
-.grid { flex:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:1rem; }
+.grid { flex:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:1rem; align-content:start; }
+.npc-section { grid-column:1 / -1; }
 .card { background:#16213e; border-radius:8px; padding:1rem; border:1px solid #0f3460; }
 .card .name { font-size:1.1rem; font-weight:bold; color:#e94560; }
 .card .tag { font-size:0.8rem; color:#888; margin-left:0.3rem; }
@@ -192,7 +193,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <div id="playerBanner" style="display:none;" class="player-banner"></div>
 
 <div class="layout">
-  <div style="flex:1;min-width:0;">
+  <div style="flex:1;min-width:0;width:100%;">
     <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
       <span style="color:#888;font-size:0.85rem;">排序:</span>
       <select id="sortSelect" onchange="fetchWorld()" style="background:#16213e;color:#eee;border:1px solid #0f3460;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.85rem;">
