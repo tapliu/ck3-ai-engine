@@ -28,16 +28,23 @@ REGIONAL_CENTER_GATES = {
     "凉州": "燕京",
 }
 
-OUTER_CONNECTIONS = {
-    "泉州": "扬州",
-    "宁波": "云中",
-    "杭州": "于阗",
-    "龟兹": "朔方",
-    "燕京": "云中",
-    "应天府": "扬州",
-    "长安": "朔方",
-    "襄阳": "于阗",
-}
+OUTER_CONNECTIONS = [
+    ("苏州", "泉州"),
+    ("云中", "登州"),
+    ("杭州", "宁波"),
+    ("龟兹", "朔方"),
+    ("燕京", "云中"),
+    ("应天府", "扬州"),
+    ("长安", "于阗"),
+    ("敦煌", "凉州"),
+    ("凉州", "长安"),
+    ("扬州", "杭州"),
+    ("登州", "扬州"),
+    ("襄阳", "扬州"),
+    ("开封", "燕京"),
+    ("登州", "燕京"),
+    ("苏州", "于阗"),
+]
 
 INNER_RING = [
     ("长安", "燕京"),
@@ -104,7 +111,7 @@ def _build_connections():
     for a, b in REGIONAL_CENTER_GATES.items():
         conn.setdefault(a, []).append(b)
         conn.setdefault(b, []).append(a)
-    for a, b in OUTER_CONNECTIONS.items():
+    for a, b in OUTER_CONNECTIONS:
         conn.setdefault(a, []).append(b)
         conn.setdefault(b, []).append(a)
     for a, b in INNER_RING:

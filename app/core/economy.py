@@ -32,11 +32,14 @@ def tick_economy(world):
 
 def try_expand(world, character):
     """AI势力尝试扩张：攻击相邻无主城池或敌对势力城池"""
-    if not character.controlled_cities:
+    bases = character.controlled_cities[:] if character.controlled_cities else []
+    if not bases and character.city:
+        bases = [character.city]
+    if not bases:
         return None
 
     targets = []
-    for city_name in character.controlled_cities:
+    for city_name in bases:
         for neighbor in world.city_connections.get(city_name, []):
             cs = world.city_states.get(neighbor)
             if not cs:
@@ -52,6 +55,8 @@ def try_expand(world, character):
         if cs.controller is not None:
             defender = world.characters.get(cs.controller)
             if not defender or not defender.alive:
+                continue
+            if hasattr(world, 'alliances') and frozenset([character.id, cs.controller]) in world.alliances:
                 continue
             if character.troops < defender.troops * 1.2:
                 continue

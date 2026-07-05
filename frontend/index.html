@@ -16,7 +16,7 @@ button:hover { background:#c73650; }
 button:disabled { opacity:0.5; cursor:not-allowed; }
 
 /* 玩家横幅 */
-.player-banner { background:linear-gradient(135deg,#16213e,#1a1a3e); border:2px solid #e94560; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; display:grid; grid-template-columns:auto 1fr; gap:1.5rem; align-items:center; box-shadow:0 0 16px rgba(233,69,96,0.2); }
+.player-banner { background:linear-gradient(135deg,#16213e,#1a1a3e); border:2px solid #e94560; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; display:grid; grid-template-columns:auto 1fr auto; gap:1.5rem; align-items:start; box-shadow:0 0 16px rgba(233,69,96,0.2); }
 .player-avatar { width:80px; height:80px; border-radius:50%; background:#e94560; display:flex; align-items:center; justify-content:center; font-size:2.5rem; font-weight:bold; color:#fff; }
 .player-info h2 { color:#e94560; margin-bottom:0.3rem; }
 .player-info .sub { color:#a0a0c0; font-size:0.9rem; }
@@ -25,6 +25,12 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .player-info .stats .val { color:#eee; font-weight:bold; }
 .player-info .stats .lbl { color:#888; }
 .player-info .rels { margin-top:0.5rem; display:flex; gap:0.3rem; flex-wrap:wrap; }
+.related-chars { display:flex; flex-direction:column; gap:0.5rem; }
+.related-char-card { background:#0f0f23; border:1px solid #555; border-radius:8px; padding:0.5rem; text-align:center; min-width:110px; }
+.related-char-card .rc-name { color:#e94560; font-weight:bold; font-size:0.85rem; }
+.related-char-card .rc-tag { display:inline-block; font-size:0.7rem; background:#e94560; padding:0.05rem 0.4rem; border-radius:4px; color:#fff; margin-left:0.2rem; }
+.related-char-card .rc-stats { font-size:0.75rem; color:#aaa; margin-top:0.2rem; }
+.related-char-card .rc-city { font-size:0.7rem; color:#888; }
 .badge { display:inline-block; background:#0f3460; border-radius:4px; padding:0.15rem 0.5rem; font-size:0.75rem; }
 
 /* 宝物 */
@@ -173,7 +179,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .pick-card .stat { font-size:0.85rem; color:#a0a0c0; margin:0.2rem 0; }
 .pick-card .desc { font-size:0.8rem; color:#666; margin-top:0.5rem; }
 
-@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } .pick-grid { grid-template-columns:1fr; } .player-banner { grid-template-columns:1fr; text-align:center; } .player-avatar { margin:0 auto; } }
+@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } .pick-grid { grid-template-columns:1fr; } .player-banner { grid-template-columns:1fr; text-align:center; } .player-avatar { margin:0 auto; } .related-chars { flex-direction:row; flex-wrap:wrap; justify-content:center; } }
 </style>
 </head>
 <body>
@@ -268,7 +274,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <!-- 游戏结束 -->
 <!-- 江山舆图 -->
 <div class="overlay" id="cityMapOverlay">
-  <div class="modal" style="max-width:900px;">
+  <div class="modal" style="max-width:1080px;">
     <h2>江山舆图</h2>
     <div id="cityMapContent"></div>
     <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('cityMapOverlay').classList.remove('active')">关闭</button></div>
@@ -457,6 +463,20 @@ function render(data) {
     if (p.master) rels.push('师:'+p.master);
     if (p.spouse) rels.push('配偶:'+p.spouse);
     (p.sworn_brothers||[]).forEach(b => rels.push('义:'+b));
+    // 相关角色（师傅/配偶/结拜）
+    const relatedChars = [];
+    if (p.master) {
+      const mc = (data.characters||[]).find(c => c.name === p.master);
+      if (mc) relatedChars.push({...mc, _rel: '师'});
+    }
+    if (p.spouse) {
+      const sc = (data.characters||[]).find(c => c.name === p.spouse);
+      if (sc) relatedChars.push({...sc, _rel: '配偶'});
+    }
+    (p.sworn_brothers||[]).forEach(b => {
+      const bc = (data.characters||[]).find(c => c.name === b);
+      if (bc) relatedChars.push({...bc, _rel: '义'});
+    });
     banner.innerHTML = `
       <img class="char-portrait" src="${portraitUrl(p.id)}" onclick="showFullBody(${p.id})" title="点击查看全身像">
       <div class="player-info">
@@ -476,10 +496,22 @@ function render(data) {
           ${p.morale !== undefined ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#4caf50;font-size:0.8rem;">士气:${p.morale}</span>` : ''}
           ${p.training !== undefined ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#e040fb;font-size:0.8rem;">训练:${p.training}</span>` : ''}
           ${(p.controlled_cities||[]).length ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#ffd700;font-size:0.8rem;">城:${p.controlled_cities.join(',')}</span>` : ''}
+          ${(p.allies||[]).length ? `<span style="background:#1a1a3e;padding:0.15rem 0.5rem;border-radius:4px;color:#00bcd4;font-size:0.8rem;">盟:${p.allies.join(',')}</span>` : ''}
         </div>
         <div class="rels">${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
         <div class="rels" style="margin-top:0.3rem;">${(p.treasures||[]).map(t => `<span class="treasure" data-treasure='${JSON.stringify(t).replace(/'/g,"\\'")}' onclick="showTreasure(this)">${t.name}</span>`).join('')}</div>
-      </div>`;
+      </div>
+      <div class="related-chars">${relatedChars.map(rc => {
+        const STAT_KEYS = ['l','w','i','p'];
+        const STAT_LABELS2 = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
+        return `<div class="related-char-card">
+          <img class="char-portrait-sm" src="${portraitUrl(rc.id)}" style="width:40px;height:40px;">
+          <div class="rc-name">${rc.name}<span class="rc-tag">${rc._rel}</span></div>
+          <div class="rc-city">${rc.city||''}</div>
+          <div class="rc-stats">${STAT_KEYS.map(k => `${STAT_LABELS2[k]}:${rc[k]}`).join(' ')}</div>
+          <div style="font-size:0.7rem;color:#888;">评分 ${rc.score}</div>
+        </div>`;
+      }).join('')}</div>`;
   } else {
     banner.style.display = 'none';
   }
@@ -527,6 +559,7 @@ function render(data) {
         ${c.morale !== undefined ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#4caf50;font-size:0.75rem;">士气:${c.morale}</span>` : ''}
         ${c.training !== undefined ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#e040fb;font-size:0.75rem;">训练:${c.training}</span>` : ''}
         ${(c.controlled_cities||[]).length ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#ffd700;font-size:0.75rem;">城:${c.controlled_cities.join(',')}</span>` : ''}
+        ${(c.allies||[]).length ? `<span style="background:#1a1a3e;padding:0.1rem 0.4rem;border-radius:4px;color:#00bcd4;font-size:0.75rem;">盟:${c.allies.join(',')}</span>` : ''}
       </div>
       <div>${rels.map(r => `<span class="badge">${r}</span>`).join('')}</div>
       <div>${(c.treasures||[]).map(t => `<span class="treasure" data-treasure='${JSON.stringify(t).replace(/'/g,"\\'")}' onclick="showTreasure(this)">${t.name}</span>`).join('')}</div>
@@ -998,7 +1031,7 @@ function showCityMap() {
     return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span style="color:#888;font-size:0.7rem;">${dev}${gar}</span>${ctrl ? '<br><span style="color:#e94560;font-size:0.7rem;">'+ctrl+'</span>' : ''}<br>${popHtml}${connHtml}</div>`;
   };
   let html = '<div style="text-align:center;margin-bottom:1rem;position:relative;">';
-  html += '<canvas id="battleCanvas" width="800" height="500" style="max-width:100%;border-radius:8px;border:1px solid #555;background:#0f0f23;display:block;margin:0 auto;"></canvas>';
+  html += '<canvas id="battleCanvas" width="960" height="600" style="max-width:100%;border-radius:8px;border:1px solid #555;background:#0f0f23;display:block;margin:0 auto;"></canvas>';
   html += '</div>';
   html += '<div class="citymap-wrapper">';
   html += '<div class="citymap-section"><h3>中原</h3><div class="citymap-zhongyuan-grid">';
@@ -1041,7 +1074,7 @@ function drawBattleCanvas(data) {
   const canvas = document.getElementById('battleCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const W = 800, H = 500;
+  const W = 960, H = 600;
   ctx.clearRect(0, 0, W, H);
 
   // 绘制地图背景
@@ -1064,14 +1097,17 @@ function drawBattleCanvas(data) {
     }
   }
 
+  ctx.save();
+  ctx.scale(1.2, 1.2);
+
   // 城池坐标（六边形内环布局，外区置于四角，减少视觉交叉）
   const CITY_POS = {
-    '长安': [170, 140], '燕京': [440, 110], '襄阳': [220, 330], '应天府': [500, 290],
-    '洛阳': [270, 160], '开封': [370, 200],
-    '敦煌': [100, 170], '龟兹': [60, 140], '于阗': [120, 350],
-    '凉州': [240, 30], '朔方': [140, 30], '云中': [440, 30],
-    '苏州': [320, 420], '杭州': [420, 460], '扬州': [520, 400],
-    '登州': [610, 220], '泉州': [660, 380], '宁波': [660, 170],
+    '长安': [340, 266], '燕京': [517, 143], '襄阳': [480, 302], '应天府': [539, 211],
+    '洛阳': [407, 257], '开封': [493, 250],
+    '敦煌': [204, 169], '龟兹': [110, 149], '于阗': [79, 260],
+    '凉州': [303, 159], '朔方': [424, 94], '云中': [529, 87],
+    '苏州': [479, 389], '杭州': [604, 329], '扬州': [581, 299],
+    '登州': [606, 195], '泉州': [602, 427], '宁波': [642, 342],
   };
 
   // 绘制连接线
@@ -1125,6 +1161,7 @@ function drawBattleCanvas(data) {
       ctx.shadowBlur = 0;
     }
   });
+  ctx.restore();
 }
 
 function showCityPeople(city) {

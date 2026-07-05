@@ -102,6 +102,7 @@ class World:
         self.titles_awarded = set()
         self.pending_move = None
         self._event_counter = 0
+        self.alliances = set()
 
         # 城池状态
         from app.models.region import CITY_CONNECTIONS as _CONN
@@ -129,7 +130,7 @@ class World:
         if zd:
             zd.city = "应天府"
             zd.region = "中原"
-            zd.troops = 8000
+            zd.troops = 5000
             zd.controlled_cities = ["应天府"]
             if "应天府" in self.city_states:
                 self.city_states["应天府"].controller = zd.id
@@ -243,11 +244,20 @@ class World:
                 cities_info[city]["garrison"] = cs.garrison
                 cities_info[city]["controller"] = cs.controller
                 cities_info[city]["terrain"] = cs.terrain
+        alliance_map = {}
+        for alliance in self.alliances:
+            for cid in alliance:
+                if cid not in alliance_map:
+                    alliance_map[cid] = []
+                for aid in alliance - {cid}:
+                    c = self.characters.get(aid)
+                    if c:
+                        alliance_map[cid].append(c.name)
         return {
             "round": getattr(self, "engine", None) and self.engine.round or 0,
-            "player": self.player_char.to_dict() if self.player_char else None,
+            "player": {**self.player_char.to_dict(), "allies": alliance_map.get(self.player_char.id, [])} if self.player_char else None,
             "triggers": self.triggers,
-            "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0)} for c in self.characters.values()],
+            "characters": [{**c.to_dict(), "rel": rel.get(c.id, 0), "allies": alliance_map.get(c.id, [])} for c in self.characters.values()],
             "game_over": self.game_over,
             "settlement": self.settlement() if self.game_over else None,
             "cities": cities_info,
@@ -259,13 +269,70 @@ class World:
         if c:
             self.player_char = c
             c.init_stats()
-            home = c.city
-            if home and home in self.city_states and self.city_states[home].controller is None:
-                self.city_states[home].controller = c.id
-                if home not in c.controlled_cities:
-                    c.controlled_cities.append(home)
-                    c.troops = max(c.troops, 2000)
         return self.player_char
+
+    # ---- 同盟系统 ----
+
+    def form_alliance(self, c1_id, c2_id):
+        self.alliances.add(frozenset([c1_id, c2_id]))
+
+    def break_alliance(self, c1_id, c2_id):
+        self.alliances.discard(frozenset([c1_id, c2_id]))
+
+    def get_allies(self, char_id):
+        result = set()
+        for alliance in self.alliances:
+            if char_id in alliance:
+                result.update(alliance - {char_id})
+        return result
+
+    def get_ally_boost(self, defender, attacker=None):
+        allies = self.get_allies(defender.id)
+        if not allies:
+            return 0, []
+        total_boost = 0
+        helper_names = []
+        for ally_id in allies:
+            if attacker and ally_id == attacker.id:
+                continue
+            ally = self.characters.get(ally_id)
+            if ally and ally.alive and ally.troops > 0:
+                aid = max(1, int(ally.troops * 0.4))
+                ally.troops -= aid
+                defender.troops += aid
+                total_boost += aid
+                helper_names.append(ally.name)
+        return total_boost, helper_names
+
+    def form_ai_alliances(self):
+        controllers = set()
+        for cs in self.city_states.values():
+            if cs.controller is not None:
+                controllers.add(cs.controller)
+        alive_controllers = [self.characters[cid] for cid in controllers
+                             if cid in self.characters and self.characters[cid].alive
+                             and (not self.player_char or cid != self.player_char.id)]
+        pairs = []
+        for i, c1 in enumerate(alive_controllers):
+            for c2 in alive_controllers[i + 1:]:
+                if frozenset([c1.id, c2.id]) in self.alliances:
+                    continue
+                rel_val = self.rel.get(c1.id, {}).get(c2.id, 0)
+                if rel_val > 30:
+                    pairs.append((rel_val, c1.id, c2.id))
+        pairs.sort(reverse=True)
+        formed = 0
+        for _rel_val, c1_id, c2_id in pairs:
+            if formed >= 2:
+                break
+            self.form_alliance(c1_id, c2_id)
+            c1 = self.characters[c1_id]
+            c2 = self.characters[c2_id]
+            self._emit({
+                "type": "diplomacy",
+                "desc": f"{c1.name}与{c2.name}缔结同盟，誓同进退！"
+            })
+            formed += 1
 
     def _check_titles(self):
         if not self.player_char:
@@ -314,7 +381,14 @@ class World:
         if target and self.player_char:
             self.player_char.master = target_name
             self.triggers["apprentice"] = True
-            self._emit({"type": "apprentice", "desc": f"{self.player_char.name}拜师{target_name}"})
+            attrs = {"l": target.l, "w": target.w, "i": target.i, "p": target.p}
+            best_attr = max(attrs, key=attrs.get)
+            best_val = attrs[best_attr]
+            gain = random.randint(5, 10) + best_val // 20
+            bonus_attr = f"bonus_{best_attr}"
+            setattr(self.player_char, bonus_attr, getattr(self.player_char, bonus_attr) + gain)
+            label = {"l": "机敏", "w": "武力", "i": "魅力", "p": "智谋"}[best_attr]
+            self._emit({"type": "apprentice", "desc": f"{self.player_char.name}拜师{target_name}，学习{label}，{label}+{gain}"})
 
     def do_marry(self, target_name):
         target = self.get(target_name)
@@ -422,20 +496,39 @@ class World:
             self.pending_tasks.append(entry)
             self.task_next_id += 1
 
-        # 玩家拥有城池时，添加扩张任务
-        if self.player_char and self.player_char.controlled_cities:
-            target_city = try_expand(self, self.player_char)
-            if target_city:
-                self.pending_tasks.append({
-                    "id": self.task_next_id,
-                    "name": "攻城略地",
-                    "desc": f"出兵攻打{target_city}，扩张势力范围",
-                    "type": "expansion",
-                    "stat": "w",
-                    "difficulty": 60,
-                    "_target_city": target_city,
-                })
-                self.task_next_id += 1
+        # 招募士兵任务（概率触发，受魅力影响）
+        if random.random() < 0.35:
+            self.pending_tasks.append({
+                "id": self.task_next_id,
+                "name": "招募士兵",
+                "desc": "在江湖招募有志之士入伍",
+                "type": "recruit",
+                "stat": "i",
+                "difficulty": 40,
+            })
+            self.task_next_id += 1
+
+        # 玩家兵力>2000时，概率触发攻占城池任务
+        if self.player_char and self.player_char.troops > 2000 and random.random() < 0.4:
+            current_city = self.player_char.city
+            if current_city:
+                candidates = []
+                for neighbor in self.city_connections.get(current_city, []):
+                    cs = self.city_states.get(neighbor)
+                    if cs and (cs.controller is None or cs.controller != self.player_char.id):
+                        candidates.append(neighbor)
+                if candidates:
+                    target = random.choice(candidates)
+                    self.pending_tasks.append({
+                        "id": self.task_next_id,
+                        "name": "攻城略地",
+                        "desc": f"出兵攻打{target}，扩张势力范围",
+                        "type": "expansion",
+                        "stat": "w",
+                        "difficulty": 60,
+                        "_target_city": target,
+                    })
+                    self.task_next_id += 1
 
     def pending_task_data(self):
         if not self.player_char:
@@ -475,6 +568,11 @@ class World:
         if task["type"] == "expansion":
             self.pending_tasks = []
             return self._execute_expansion_task(task)
+
+        # 招募士兵任务
+        if task["type"] == "recruit":
+            self.pending_tasks = []
+            return self._execute_recruit_task(task)
 
         if mode == "focus":
             chance = min(95, max(5, 50 + (stat_val - task["difficulty"]) * 0.75))
@@ -557,7 +655,22 @@ class World:
             defender = self.characters.get(city_state.controller)
 
         if defender and defender.alive:
+            ally_boost, helper_names = self.get_ally_boost(defender, self.player_char)
+            if helper_names:
+                self._emit({
+                    "type": "diplomacy",
+                    "desc": f"{defender.name}的盟友{'、'.join(helper_names)}率军驰援！"
+                })
             result = sim_battle(self.player_char, defender, target_city, self)
+            if result["result"] in ("attacker_win", "draw"):
+                defender.troops = max(0, defender.troops - ally_boost)
+            if not self.player_char.alive:
+                self.game_over = True
+                self._emit({
+                    "type": "death",
+                    "desc": f"{self.player_char.name}在攻城战中阵亡！",
+                })
+                return {"success": False, "desc": f"{self.player_char.name}在攻城战中阵亡！", "game_over": True}
             victory = result["result"] == "attacker_win"
             if victory:
                 conquer_city(self, self.player_char, target_city, result)
@@ -580,6 +693,21 @@ class World:
             conquer_city(self, self.player_char, target_city, None)
             return {"success": True, "desc": f"兵不血刃占领{target_city}！"}
 
+    def _execute_recruit_task(self, task):
+        stat_val = getattr(self.player_char, task["stat"])
+        chance = min(95, max(5, 50 + (stat_val - task["difficulty"]) * 0.5))
+        success = random.randint(1, 100) <= chance
+        if success:
+            gain = 500
+            self.player_char.troops += gain
+            desc = f"{self.player_char.name}招募了{gain}名士兵"
+            self._emit({"type": "task_success", "desc": desc})
+            return {"success": True, "desc": desc}
+        else:
+            desc = f"{self.player_char.name}招募士兵失败"
+            self._emit({"type": "task_fail", "desc": desc})
+            return {"success": False, "desc": desc}
+
     def _grant_task_reward(self, deadly=False):
         stats = ["bonus_l", "bonus_w", "bonus_i", "bonus_p"]
         stat = random.choice(stats)
@@ -599,6 +727,16 @@ class World:
     # ---- NPC 任务自动执行 ----
 
     def npc_task(self, npc):
+        # 招募士兵（概率触发，受魅力影响）
+        if random.random() < 0.3:
+            recruit_chance = min(95, max(5, 50 + (npc.i - 40) * 0.5))
+            if random.randint(1, 100) <= recruit_chance:
+                npc.troops += 500
+                self._emit({"type": "task_success", "desc": f"{npc.name}招募了500名士兵"})
+            else:
+                self._emit({"type": "task_fail", "desc": f"{npc.name}招募士兵失败"})
+            return
+
         pool = NON_CHAR_TASKS + CHAR_TASKS
         if random.random() < 0.3:
             pool += DEADLY_TASKS

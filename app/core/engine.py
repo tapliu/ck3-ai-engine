@@ -55,7 +55,7 @@ class Engine:
         # 新战斗系统：AI势力扩张
         if self.round > 0 and self.round % 3 == 0:
             for c in self.world.alive_except_player():
-                if c.troops < 100:
+                if c.troops < 2000:
                     continue
                 target = try_expand(self.world, c)
                 if target:
@@ -64,7 +64,15 @@ class Engine:
                     if city_state and city_state.controller:
                         defender = self.world.characters.get(city_state.controller)
                     if defender and defender.alive:
+                        ally_boost, helper_names = self.world.get_ally_boost(defender, c)
+                        if helper_names:
+                            self.bus.emit({
+                                "type": "diplomacy",
+                                "desc": f"{defender.name}的盟友{'、'.join(helper_names)}率军驰援！"
+                            })
                         result = sim_battle(c, defender, target, self.world)
+                        if result["result"] in ("attacker_win", "draw"):
+                            defender.troops = max(0, defender.troops - ally_boost)
                         if result["result"] == "attacker_win":
                             conquer_city(self.world, c, target, result)
                         self.bus.emit({"type": "battle", "desc": f"{c.name}攻打{target}！{'获胜' if result['result']=='attacker_win' else '失败'}", "battle_result": result})
@@ -72,6 +80,10 @@ class Engine:
                             self.bus.emit({"type": "battle_log", "desc": log, "battle_result": result})
                     else:
                         conquer_city(self.world, c, target, None)
+
+        # AI同盟形成（每5回合，城主人之间友好度高的优先）
+        if self.round > 0 and self.round % 5 == 0:
+            self.world.form_ai_alliances()
 
         self.world.cooperation_event()
         self.world.do_tick_events()
