@@ -269,6 +269,14 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
     <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('cityMapOverlay').classList.remove('active')">关闭</button></div>
   </div>
 </div>
+<!-- 城市人物弹窗 -->
+<div class="overlay" id="cityPeopleOverlay">
+  <div class="modal" style="max-width:650px;">
+    <h2 id="cityPeopleTitle"></h2>
+    <div id="cityPeopleContent"></div>
+    <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('cityPeopleOverlay').classList.remove('active')">关闭</button></div>
+  </div>
+</div>
 
 <div class="gameover-overlay" id="gameoverOverlay">
   <div class="gameover-box">
@@ -934,7 +942,8 @@ function showCityMap() {
     if (info.regional_center) badges.push('要冲');
     const badgeHtml = badges.length ? ' <span style="color:#ffd700;font-size:0.7rem;">['+badges.join('+')+']</span>' : '';
     const connHtml = (info.connections||[]).length ? ' → <span class="cconn">' + info.connections.join(', ')+'</span>' : '';
-    return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span class="cpop">${pop.length}人</span>${connHtml}</div>`;
+    const popHtml = pop.length ? `<span class="cpop" onclick="showCityPeople('${city}')" style="cursor:pointer;text-decoration:underline dotted;">${pop.length}人</span>` : `<span class="cpop">${pop.length}人</span>`;
+    return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}${popHtml}${connHtml}</div>`;
   };
   let html = '<div style="text-align:center;margin-bottom:1rem;"><img src="/api/data/map.png" style="max-width:100%;border-radius:8px;border:1px solid #555;"></div>';
   html += '<div class="citymap-wrapper">';
@@ -963,6 +972,38 @@ function showCityMap() {
   html += '</div>';
   document.getElementById('cityMapContent').innerHTML = html;
   document.getElementById('cityMapOverlay').classList.add('active');
+}
+
+function showCityPeople(city) {
+  const data = window._lastData;
+  if (!data || !data.cities || !data.cities[city]) return;
+  const info = data.cities[city];
+  const pop = info.population || [];
+  const allChars = data.characters || [];
+  const cityChars = allChars.filter(c => c.city === city);
+  document.getElementById('cityPeopleTitle').textContent = `${city} · ${info.region}（${pop.length}人）`;
+  let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
+  if (cityChars.length === 0) {
+    html += '<div style="color:#888;text-align:center;padding:1rem;">暂无人物</div>';
+  } else {
+    cityChars.forEach(c => {
+      const alive = c.alive !== false;
+      const nameColor = alive ? '#eee' : '#666';
+      const statusText = alive ? '存活' : '已故';
+      const statusColor = alive ? '#4caf50' : '#f44336';
+      html += `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.5rem;border-bottom:1px solid #1a1a3e;font-size:0.85rem;">
+        <img src="${portraitUrl(c.id)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">
+        <div style="flex:1;">
+          <div><span style="color:${nameColor};font-weight:bold;">${c.name}</span> <span style="color:#888;font-size:0.75rem;">${c.gender} · ${c.age}岁</span></div>
+          <div style="color:#888;font-size:0.75rem;">机敏${c.l} 武力${c.w} 魅力${c.i} 智谋${c.p}</div>
+        </div>
+        <span style="color:${statusColor};font-size:0.75rem;">${statusText}</span>
+      </div>`;
+    });
+  }
+  html += '</div>';
+  document.getElementById('cityPeopleContent').innerHTML = html;
+  document.getElementById('cityPeopleOverlay').classList.add('active');
 }
 
 loadSelect();
