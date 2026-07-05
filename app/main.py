@@ -1,4 +1,5 @@
 import os
+import pickle
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,6 +14,8 @@ app = FastAPI(title="浪子江湖-侠行四海")
 
 engine = Engine(world)
 world.engine = engine
+
+SAVE_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "save.dat")
 
 app.include_router(world_router)
 app.include_router(npc_router)
@@ -56,6 +59,27 @@ class SelectPlayer(BaseModel):
 def new_game():
     world.new_game()
     engine.reset()
+    return {"ok": True}
+
+@app.post("/api/save")
+def save_game():
+    os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
+    with open(SAVE_PATH, 'wb') as f:
+        pickle.dump((world, engine), f)
+    return {"ok": True}
+
+@app.post("/api/load")
+def load_game():
+    if not os.path.isfile(SAVE_PATH):
+        return {"ok": False, "error": "no_save"}
+    with open(SAVE_PATH, 'rb') as f:
+        saved_world, saved_engine = pickle.load(f)
+    world.__dict__.clear()
+    world.__dict__.update(saved_world.__dict__)
+    engine.__dict__.clear()
+    engine.__dict__.update(saved_engine.__dict__)
+    world.engine = engine
+    engine.world = world
     return {"ok": True}
 
 @app.post("/api/start/select")
@@ -153,3 +177,200 @@ def execute_move(body: MoveRequest):
 @app.get("/api/tournament")
 def get_tournament():
     return world.tournament or {"active": False, "groups": [], "knockout": [], "champion": None}
+
+# ---- 武将编辑 ----
+
+CHARS_JSON = os.path.join(os.path.dirname(__file__), "..", "data", "chars.json")
+
+@app.get("/api/characters/edit")
+def get_characters_edit():
+    import json
+    with open(CHARS_JSON, "r", encoding="utf-8") as f:
+        original = json.load(f)
+    current = []
+    for c in world.characters.values():
+        current.append({
+            "id": c.id, "name": c.name, "gender": c.gender,
+            "l": c.base_l, "w": c.base_w, "i": c.base_i, "p": c.base_p,
+            "age": c.age, "desc": c.desc,
+        })
+    return {"original": original, "current": current}
+
+class CharEditItem(BaseModel):
+    id: int
+    name: str
+    gender: str
+    l: int
+    w: int
+    i: int
+    p: int
+    age: int
+    desc: str
+
+@app.post("/api/characters/save")
+def save_characters(items: list[CharEditItem]):
+    import json
+    # Update in-memory characters
+    for item in items:
+        c = world.characters.get(item.id)
+        if c:
+            c.base_l = item.l
+            c.base_w = item.w
+            c.base_i = item.i
+            c.base_p = item.p
+            c.age = item.age
+            c.desc = item.desc
+            c.name = item.name
+            c.gender = item.gender
+    # Update chars.json
+    data = [{"gender": it.gender, "name": it.name, "l": it.l, "w": it.w, "i": it.i, "p": it.p, "desc": it.desc, "age": it.age} for it in items]
+    with open(CHARS_JSON, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    # Update module-level DATA
+    from app.core.world import DATA
+    DATA.clear()
+    DATA.extend(data)
+    return {"ok": True}
+
+@app.post("/api/characters/reset")
+def reset_characters():
+    import json
+    with open(CHARS_JSON, "r", encoding="utf-8") as f:
+        original = json.load(f)
+    name_to_char = {c.name: c for c in world.characters.values()}
+    for d in original:
+        c = name_to_char.get(d["name"])
+        if c:
+            c.base_l = d["l"]
+            c.base_w = d["w"]
+            c.base_i = d["i"]
+            c.base_p = d["p"]
+            c.age = d.get("age", 20)
+            c.desc = d.get("desc", "")
+            c.gender = d["gender"]
+            c.bonus_l = 0
+            c.bonus_w = 0
+            c.bonus_i = 0
+            c.bonus_p = 0
+    from app.core.world import DATA
+    DATA.clear()
+    DATA.extend(original)
+    return {"ok": True}
+
+# ---- 自建武将 ----
+
+CUSTOM_CHARS_JSON = os.path.join(os.path.dirname(__file__), "..", "data", "custom_chars.json")
+
+def _read_custom_chars():
+    import json
+    if not os.path.isfile(CUSTOM_CHARS_JSON):
+        return []
+    with open(CUSTOM_CHARS_JSON, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _write_custom_chars(data):
+    import json
+    os.makedirs(os.path.dirname(CUSTOM_CHARS_JSON), exist_ok=True)
+    with open(CUSTOM_CHARS_JSON, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+@app.get("/api/characters/custom")
+def list_custom_chars():
+    return {"chars": _read_custom_chars()}
+
+class CustomCharCreate(BaseModel):
+    name: str
+    gender: str
+    l: int
+    w: int
+    i: int
+    p: int
+    age: int
+    desc: str = ""
+    imageIdx: int = 1
+
+@app.post("/api/characters/custom/create")
+def create_custom_char(body: CustomCharCreate):
+    chars = _read_custom_chars()
+    new_id = max([c["id"] for c in chars], default=-1) + 1
+    entry = {
+        "id": new_id,
+        "name": body.name,
+        "gender": body.gender,
+        "l": body.l,
+        "w": body.w,
+        "i": body.i,
+        "p": body.p,
+        "age": body.age,
+        "desc": body.desc,
+        "imageIdx": body.imageIdx,
+    }
+    chars.append(entry)
+    _write_custom_chars(chars)
+    # Also add to current world if a game is active
+    if world.characters and world.characters:
+        world.create(body.gender, body.name, body.l, body.w, body.i, body.p, body.desc, body.age, body.imageIdx, new_id)
+    return {"ok": True, "char": entry}
+
+class CustomCharUpdate(BaseModel):
+    id: int
+    name: str
+    gender: str
+    l: int
+    w: int
+    i: int
+    p: int
+    age: int
+    desc: str = ""
+    imageIdx: int = 1
+
+@app.post("/api/characters/custom/update")
+def update_custom_char(body: CustomCharUpdate):
+    chars = _read_custom_chars()
+    found = None
+    for c in chars:
+        if c["id"] == body.id:
+            c.update({
+                "name": body.name,
+                "gender": body.gender,
+                "l": body.l,
+                "w": body.w,
+                "i": body.i,
+                "p": body.p,
+                "age": body.age,
+                "desc": body.desc,
+                "imageIdx": body.imageIdx,
+            })
+            found = c
+            break
+    if not found:
+        return {"ok": False, "error": "not_found"}
+    _write_custom_chars(chars)
+    # Update in current world
+    for c in world.characters.values():
+        if c.custom_id == body.id:
+            c.name = body.name
+            c.gender = body.gender
+            c.base_l = body.l
+            c.base_w = body.w
+            c.base_i = body.i
+            c.base_p = body.p
+            c.age = body.age
+            c.desc = body.desc
+            c.imageIdx = body.imageIdx
+            break
+    return {"ok": True, "char": found}
+
+class CustomCharDelete(BaseModel):
+    id: int
+
+@app.post("/api/characters/custom/delete")
+def delete_custom_char(body: CustomCharDelete):
+    chars = _read_custom_chars()
+    chars = [c for c in chars if c["id"] != body.id]
+    _write_custom_chars(chars)
+    # Remove from current world
+    to_remove = [cid for cid, c in world.characters.items() if c.custom_id == body.id]
+    for cid in to_remove:
+        del world.characters[cid]
+    return {"ok": True}

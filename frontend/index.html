@@ -167,7 +167,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .treasure-detail .td-bonus .tb-item .tb-val { font-weight:bold; color:#e94560; }
 
 /* overlay */
-.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:100; }
+.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:10000; }
 .overlay.active { display:flex; }
 .modal { background:#1a1a2e; border:2px solid #e94560; border-radius:12px; padding:2rem; max-width:640px; width:90%; max-height:80vh; overflow-y:auto; }
 .modal h2 { color:#e94560; margin-bottom:1rem; text-align:center; }
@@ -179,12 +179,143 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .pick-card .stat { font-size:0.85rem; color:#a0a0c0; margin:0.2rem 0; }
 .pick-card .desc { font-size:0.8rem; color:#666; margin-top:0.5rem; }
 
-@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } .pick-grid { grid-template-columns:1fr; } .player-banner { grid-template-columns:1fr; text-align:center; } .player-avatar { margin:0 auto; } .related-chars { flex-direction:row; flex-wrap:wrap; justify-content:center; } }
+/* 武将编辑 */
+.char-edit-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:0.8rem; max-height:60vh; overflow-y:auto; padding:0.5rem; }
+.char-edit-card { background:#16213e; border:1px solid #0f3460; border-radius:8px; padding:0.8rem; }
+.char-edit-card .ce-name { font-size:1rem; font-weight:bold; color:#e94560; margin-bottom:0.3rem; }
+.char-edit-card .ce-field { display:flex; align-items:center; gap:0.4rem; margin:0.2rem 0; font-size:0.85rem; }
+.char-edit-card .ce-field label { color:#aaa; min-width:3em; }
+.char-edit-card .ce-field input { width:60px; background:#0f0f23; border:1px solid #555; color:#eee; padding:0.2rem 0.4rem; border-radius:3px; font-size:0.85rem; text-align:center; }
+.char-edit-card .ce-field input.ce-wide { width:180px; text-align:left; }
+.char-edit-card .ce-desc { margin-top:0.3rem; }
+.char-edit-card .ce-desc textarea { width:100%; background:#0f0f23; border:1px solid #555; color:#ccc; padding:0.3rem; border-radius:3px; font-size:0.8rem; resize:vertical; min-height:40px; }
+.char-edit-card .ce-idx { color:#555; font-size:0.75rem; }
+
+/* 开始界面 */
+.start-overlay { position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center; background:#0a0a1a; }
+.start-overlay.active { display:flex; }
+#startCanvas, #charMenuCanvas, #charCreateCanvas, #customCharEditCanvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; }
+.start-content { position:relative; z-index:1; text-align:center; }
+.start-title-top { font-size:1.3rem; color:#e94560; letter-spacing:0.6em; margin-bottom:0.3rem; text-shadow:0 0 20px rgba(233,69,96,0.5); }
+.start-title { font-size:4.5rem; font-weight:bold; background:linear-gradient(180deg,#ffd700,#e94560); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-shadow:none; letter-spacing:0.3em; margin-bottom:0.3rem; }
+.start-subtitle { font-size:1.1rem; color:#a0a0c0; letter-spacing:0.4em; margin-bottom:3rem; }
+.start-buttons { display:flex; flex-direction:column; gap:1rem; align-items:center; }
+.start-buttons button { width:260px; padding:0.9rem 0; background:rgba(22,33,62,0.85); border:2px solid #e94560; border-radius:6px; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.start-buttons button:hover { background:rgba(233,69,96,0.25); border-color:#ffd700; transform:translateY(-2px); box-shadow:0 0 20px rgba(233,69,96,0.3); }
+.start-buttons button .btn-zh { font-size:1.1rem; color:#eee; letter-spacing:0.3em; }
+
+@media(max-width:768px) { .layout { flex-direction:column; } .sidebar { width:100%; } .pick-grid { grid-template-columns:1fr; } .player-banner { grid-template-columns:1fr; text-align:center; } .player-avatar { margin:0 auto; } .related-chars { flex-direction:row; flex-wrap:wrap; justify-content:center; } .start-title { font-size:2.8rem; } .cc-content { flex-direction:column; align-items:center; } .cc-image-section { max-width:400px; } .cc-form-section { max-width:400px; } }
+/* 自建武将 */
+.cc-content { display:flex; gap:2rem; justify-content:center; align-items:flex-start; max-width:900px; margin:0 auto; padding:1rem; }
+.cc-image-section { flex-shrink:0; max-width:480px; }
+.cc-form-section { flex-shrink:0; max-width:380px; text-align:left; }
+.img-select-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:0.4rem; margin-bottom:0.8rem; }
+.img-select-item { width:100%; aspect-ratio:1/1; border:2px solid #555; border-radius:6px; cursor:pointer; object-fit:cover; transition:all 0.2s; }
+.img-select-item:hover { border-color:#e94560; transform:scale(1.05); }
+.img-select-item.selected { border-color:#ffd700; box-shadow:0 0 8px rgba(255,215,0,0.5); }
+.cc-preview { display:flex; gap:1rem; align-items:center; justify-content:center; margin-bottom:0.8rem; }
+.cc-preview-portrait { width:100px; height:100px; border-radius:50%; object-fit:cover; border:2px solid #e94560; }
+.cc-preview-body { max-height:160px; border-radius:6px; border:1px solid #555; }
+.cc-form-row { display:flex; gap:0.5rem; margin:0.3rem 0; align-items:center; }
+.cc-form-row label { color:#aaa; min-width:3em; font-size:0.9rem; }
+.cc-form-row input,.cc-form-row select { background:#0f0f23; border:1px solid #555; color:#eee; padding:0.3rem 0.5rem; border-radius:3px; font-size:0.9rem; }
+.cc-form-row input { width:70px; text-align:center; }
+.cc-form-row input.cc-wide { width:180px; text-align:left; }
+.cc-desc textarea { width:100%; background:#0f0f23; border:1px solid #555; color:#ccc; padding:0.3rem; border-radius:3px; font-size:0.85rem; resize:vertical; min-height:50px; }
+.cc-actions { display:flex; gap:0.8rem; justify-content:center; margin-top:1rem; }
+.custom-char-list { max-width:700px; margin:0 auto; text-align:left; max-height:60vh; overflow-y:auto; padding:0.5rem; }
+.custom-char-item { display:flex; align-items:center; gap:1rem; background:#16213e; border:1px solid #0f3460; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem; }
+.custom-char-item .cci-img { width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #e94560; flex-shrink:0; }
+.custom-char-item .cci-info { flex:1; min-width:0; }
+.custom-char-item .cci-name { font-size:1rem; font-weight:bold; color:#e94560; }
+.custom-char-item .cci-stats { font-size:0.8rem; color:#aaa; }
+.custom-char-item .cci-actions { display:flex; gap:0.4rem; flex-shrink:0; }
+.custom-char-item .cci-actions button { padding:0.3rem 0.7rem; font-size:0.8rem; }
 </style>
 </head>
 <body>
+<!-- 开始界面 -->
+<div class="start-overlay active" id="startOverlay">
+  <canvas id="startCanvas"></canvas>
+  <div class="start-content">
+    <div class="start-title-top">—— 浪子江湖 ——</div>
+    <div class="start-title">侠行四海</div>
+    <div class="start-subtitle">策马江湖 · 快意恩仇</div>
+    <div class="start-buttons">
+      <button onclick="startGame()"><span class="btn-zh">开始游戏</span></button>
+      <button onclick="loadGame()"><span class="btn-zh">读取存档</span></button>
+      <button onclick="showCharMenu()"><span class="btn-zh">编辑武将</span></button>
+      <button onclick="alert('功能开发中，敬请期待')"><span class="btn-zh">游戏设置</span></button>
+      <button onclick="if(confirm('确定退出游戏吗？')) window.close()"><span class="btn-zh">退出游戏</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- 武将菜单界面 -->
+<div class="start-overlay" id="charMenuOverlay">
+  <canvas id="charMenuCanvas"></canvas>
+  <div class="start-content">
+    <div class="start-title-top">—— 武将管理 ——</div>
+    <div class="start-subtitle" style="margin-bottom:2.5rem;">编辑现有武将 · 自建武将</div>
+    <div class="start-buttons">
+      <button onclick="showCharEditor()"><span class="btn-zh">编辑现有武将</span></button>
+      <button onclick="showCharCreator()"><span class="btn-zh">自建武将</span></button>
+      <button onclick="showCustomCharEditor()"><span class="btn-zh">编辑自建武将</span></button>
+    </div>
+    <div style="margin-top:2.5rem;">
+      <button onclick="closeCharMenu()" style="width:160px;padding:0.6rem 0;background:rgba(22,33,62,0.85);border:1px solid #888;border-radius:6px;cursor:pointer;"><span class="btn-zh" style="font-size:0.9rem;">返回主菜单</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- 自建武将 - 创建/编辑 -->
+<div class="start-overlay" id="charCreateOverlay">
+  <canvas id="charCreateCanvas"></canvas>
+  <div class="start-content" style="width:90%;max-width:960px;">
+    <div class="start-title-top">—— 自建武将 ——</div>
+    <div class="cc-content">
+      <div class="cc-image-section">
+        <div class="img-select-grid" id="ccImageGrid"></div>
+        <div class="cc-preview">
+          <img id="ccPortraitPreview" class="cc-preview-portrait" src="" alt="头像预览">
+          <img id="ccBodyPreview" class="cc-preview-body" src="" alt="全身预览">
+        </div>
+      </div>
+      <div class="cc-form-section">
+        <div class="cc-form-row"><label>名称</label><input class="cc-wide" id="ccName" placeholder="输入角色名称"></div>
+        <div class="cc-form-row"><label>性别</label>
+          <select id="ccGender"><option value="男">男</option><option value="女">女</option></select>
+        </div>
+        <div class="cc-form-row"><label>机敏</label><input id="ccL" type="number" value="50" min="1" max="200"></div>
+        <div class="cc-form-row"><label>武力</label><input id="ccW" type="number" value="50" min="1" max="200"></div>
+        <div class="cc-form-row"><label>魅力</label><input id="ccI" type="number" value="50" min="1" max="200"></div>
+        <div class="cc-form-row"><label>智谋</label><input id="ccP" type="number" value="50" min="1" max="200"></div>
+        <div class="cc-form-row"><label>年龄</label><input id="ccAge" type="number" value="20" min="1" max="150"></div>
+        <div class="cc-desc"><textarea id="ccDesc" placeholder="角色描述（可选）"></textarea></div>
+      </div>
+    </div>
+    <div class="cc-actions">
+      <button id="ccSaveBtn" onclick="saveCustomChar()" style="background:#4caf50;">创建武将</button>
+      <button onclick="closeCharCreator()" style="border:1px solid #888;background:rgba(22,33,62,0.85);">返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自建武将 - 编辑列表 -->
+<div class="start-overlay" id="customCharEditOverlay">
+  <canvas id="customCharEditCanvas"></canvas>
+  <div class="start-content" style="width:90%;max-width:800px;">
+    <div class="start-title-top">—— 编辑自建武将 ——</div>
+    <div id="customCharList" class="custom-char-list"></div>
+    <div style="margin-top:1rem;">
+      <button onclick="closeCustomCharEditor()" style="border:1px solid #888;background:rgba(22,33,62,0.85);">返回</button>
+    </div>
+  </div>
+</div>
+
 <h1>浪子江湖 · 侠行四海</h1>
 <div class="header">
+  <button id="saveBtn" onclick="saveGame()" style="background:#2d6a4f;padding:0.3rem 0.8rem;font-size:0.85rem;margin-right:0.5rem;">存档</button>
   <div class="round" id="roundDisplay">回合: 0</div>
   <div style="font-size:0.85rem;color:#aaa;">
     <span id="aliveCount" style="color:#4caf50;">存活: 0</span>
@@ -196,7 +327,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
     <button id="autoBtn" onclick="toggleAuto()" style="background:#2d6a4f;">托管</button>
     <button id="tournamentBtn" onclick="showTournament()" style="display:none;background:#533483;">天下第一武道会</button>
     <button onclick="showCityMap()" style="background:#0f3460;">江山舆图</button>
-    <button onclick="fetchWorld()">刷新</button>
+    <button onclick="confirmRestart()" style="background:#c73650;">返回主菜单</button>
   </div>
 </div>
 
@@ -227,7 +358,7 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 </div>
 
 <!-- 选人弹窗 -->
-<div class="overlay active" id="selectOverlay">
+<div class="overlay" id="selectOverlay">
   <div class="modal">
     <h2>选择你的角色</h2>
     <div class="intro">闯荡江湖，从选择一位侠士开始</div>
@@ -324,11 +455,33 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
   </div>
 </div>
 
+<!-- 华山论剑弹窗 -->
+<div class="overlay" id="huashanOverlay">
+  <div class="modal" style="max-width:600px;">
+    <h2>🗡️ 华山论剑 · 最终决战</h2>
+    <div id="huashanContent"></div>
+    <div style="text-align:center;margin-top:1.2rem;"><button onclick="document.getElementById('huashanOverlay').classList.remove('active')">关闭</button></div>
+  </div>
+</div>
+
 <!-- 全身像弹窗 -->
 <div class="overlay" id="fullbodyOverlay">
   <div class="modal" style="max-width:500px;text-align:center;">
     <img id="fullbodyImg" class="fullbody-img" src="">
     <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('fullbodyOverlay').classList.remove('active')">关闭</button></div>
+  </div>
+</div>
+
+<!-- 武将编辑弹窗 -->
+<div class="overlay" id="charEditorOverlay">
+  <div class="modal" style="max-width:900px;">
+    <h2>编辑武将</h2>
+    <div id="charEditorContent"></div>
+    <div style="text-align:center;margin-top:1.2rem;display:flex;gap:0.5rem;justify-content:center;">
+      <button onclick="saveCharEdits()" style="background:#4caf50;">保存更改</button>
+      <button onclick="resetCharEdits()" style="background:#ff9800;">重置更改</button>
+      <button onclick="closeCharEditor()">关闭</button>
+    </div>
   </div>
 </div>
 
@@ -349,6 +502,8 @@ async function fetchWorld() {
   } catch(e) { console.error(e); }
 }
 
+let _lastTournamentChampion = null;
+
 async function tick() {
   const btn = document.getElementById('tickBtn');
   btn.disabled = true;
@@ -356,7 +511,16 @@ async function tick() {
     await fetch('/tick', {method:'POST'});
     await fetchWorld();
     await fetchEvents();
-    await checkTournament();
+    // 自动弹出武道会结果
+    const d = window._lastData;
+    if (d.tournament && d.tournament.active && d.tournament.champion && d.tournament.champion !== _lastTournamentChampion) {
+      _lastTournamentChampion = d.tournament.champion;
+      showTournament();
+    }
+    // 自动弹出华山论剑结果
+    if (d.huashan_result && d.huashan_result.champion) {
+      showHuashanResult();
+    }
     const hasMove = await checkPendingMove();
     if (!hasMove) {
       const hasEvent = await checkPendingEvents();
@@ -478,7 +642,7 @@ function render(data) {
       if (bc) relatedChars.push({...bc, _rel: '义'});
     });
     banner.innerHTML = `
-      <img class="char-portrait" src="${portraitUrl(p.id)}" onclick="showFullBody(${p.id})" title="点击查看全身像">
+      <img class="char-portrait" src="${portraitUrl(p.id, p.imageIdx)}" onclick="showFullBody(${p.id})" title="点击查看全身像">
       <div class="player-info">
         <h2>${p.name}</h2>
         <div class="sub">${p.gender} · ${p.age}岁 · ${p.city||p.region}${p.city&&window._cities&&window._cities[p.city]&&window._cities[p.city].capital?'<span class="capital-badge">帝都</span>':''}${p.city&&window._cities&&window._cities[p.city]&&window._cities[p.city].regional_center?'<span class="center-badge">要冲</span>':''} · 评分 ${p.score}</div>
@@ -505,7 +669,7 @@ function render(data) {
         const STAT_KEYS = ['l','w','i','p'];
         const STAT_LABELS2 = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
         return `<div class="related-char-card">
-          <img class="char-portrait-sm" src="${portraitUrl(rc.id)}" style="width:40px;height:40px;">
+          <img class="char-portrait-sm" src="${portraitUrl(rc.id, rc.imageIdx)}" style="width:40px;height:40px;">
           <div class="rc-name">${rc.name}<span class="rc-tag">${rc._rel}</span></div>
           <div class="rc-city">${rc.city||''}</div>
           <div class="rc-stats">${STAT_KEYS.map(k => `${STAT_LABELS2[k]}:${rc[k]}`).join(' ')}</div>
@@ -538,7 +702,7 @@ function render(data) {
     return `
     <div class="card">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;">
-        <img class="char-portrait-sm" src="${portraitUrl(c.id)}" onclick="showFullBody(${c.id})" title="点击查看全身像">
+        <img class="char-portrait-sm" src="${portraitUrl(c.id, c.imageIdx)}" onclick="showFullBody(${c.id})" title="点击查看全身像">
         <div><div class="name">${c.name}<span class="tag">${c.region}</span></div>
         <div class="city">${c.city||''}${c.city&&window._cities&&window._cities[c.city]&&window._cities[c.city].capital?'<span class="capital-badge">帝都</span>':''}${c.city&&window._cities&&window._cities[c.city]&&window._cities[c.city].regional_center?'<span class="center-badge">要冲</span>':''}</div></div>
       </div>
@@ -579,6 +743,161 @@ function render(data) {
 }
 
 // 角色选择
+// 开始界面
+let _startLandscapeInited = false;
+function drawStartLandscape(canvasId) {
+  const canvas = document.getElementById(canvasId || 'startCanvas');
+  if (!canvas) return;
+  if (!_startLandscapeInited) {
+    _startLandscapeInited = true;
+    window.addEventListener('resize', () => {
+      document.querySelectorAll('.start-overlay.active canvas').forEach(c => {
+        const cvs = c;
+        cvs.width = window.innerWidth;
+        cvs.height = window.innerHeight;
+        redrawCanvas(cvs);
+      });
+    });
+  }
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  redrawCanvas(canvas);
+}
+
+function redrawCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // 天空渐变
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#0a0a1a');
+    sky.addColorStop(0.3, '#1a1a3e');
+    sky.addColorStop(0.6, '#16213e');
+    sky.addColorStop(1, '#0f3460');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+
+    // 月亮
+    const moonX = w * 0.78, moonY = h * 0.12;
+    const moonGrad = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, 50);
+    moonGrad.addColorStop(0, 'rgba(255,215,0,0.3)');
+    moonGrad.addColorStop(0.5, 'rgba(255,215,0,0.1)');
+    moonGrad.addColorStop(1, 'rgba(255,215,0,0)');
+    ctx.fillStyle = moonGrad;
+    ctx.fillRect(moonX - 60, moonY - 60, 120, 120);
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 30, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,215,0,0.15)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 22, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(230,200,150,0.25)';
+    ctx.fill();
+
+    // 远山层1（最远，最淡）
+    ctx.fillStyle = 'rgba(30,40,70,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.55);
+    for (let x = 0; x <= w; x += 8) {
+      const y = h * 0.55 + Math.sin(x * 0.003 + 1) * 40 + Math.sin(x * 0.007) * 25 + Math.sin(x * 0.015 + 2) * 12;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fill();
+
+    // 远山层2
+    ctx.fillStyle = 'rgba(25,35,65,0.5)';
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.60);
+    for (let x = 0; x <= w; x += 8) {
+      const y = h * 0.60 + Math.sin(x * 0.004 + 0.5) * 35 + Math.sin(x * 0.009 + 1.5) * 20 + Math.sin(x * 0.018 + 3) * 10;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fill();
+
+    // 远山层3（最近，最深）
+    ctx.fillStyle = 'rgba(20,30,55,0.7)';
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.64);
+    for (let x = 0; x <= w; x += 8) {
+      const y = h * 0.64 + Math.sin(x * 0.005 + 2) * 30 + Math.sin(x * 0.011 + 0.8) * 18 + Math.sin(x * 0.022 + 1) * 8;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fill();
+
+    // 水面
+    const waterGrad = ctx.createLinearGradient(0, h * 0.66, 0, h);
+    waterGrad.addColorStop(0, 'rgba(15,20,50,0.6)');
+    waterGrad.addColorStop(0.5, 'rgba(10,15,40,0.8)');
+    waterGrad.addColorStop(1, 'rgba(5,10,30,1)');
+    ctx.fillStyle = waterGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.66);
+    for (let x = 0; x <= w; x += 6) {
+      const y = h * 0.66 + Math.sin(x * 0.008 + 1) * 6 + Math.sin(x * 0.02 + 3) * 3;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fill();
+
+    // 水面波光
+    ctx.strokeStyle = 'rgba(200,200,255,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 20; i++) {
+      const bx = Math.random() * w;
+      const by = h * 0.7 + Math.random() * h * 0.25;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + 30 + Math.random() * 40, by);
+      ctx.stroke();
+    }
+
+    // 飞鸟
+    ctx.strokeStyle = 'rgba(200,200,255,0.12)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 8; i++) {
+      const bx = w * 0.1 + Math.random() * w * 0.6;
+      const by = h * 0.15 + Math.random() * h * 0.2;
+      const bw = 12 + Math.random() * 8;
+      ctx.beginPath();
+      ctx.moveTo(bx - bw, by + 3);
+      ctx.quadraticCurveTo(bx - bw * 0.3, by - 6, bx, by + 2);
+      ctx.quadraticCurveTo(bx + bw * 0.3, by - 5, bx + bw, by + 3);
+      ctx.stroke();
+    }
+
+    // 松树枝（近景点缀）
+    ctx.fillStyle = 'rgba(15,25,45,0.9)';
+    for (let i = 0; i < 4; i++) {
+      const px = w * 0.05 + i * w * 0.25 + Math.random() * 40;
+      const py = h * 0.62 + Math.random() * 20;
+      // 树干
+      ctx.fillStyle = 'rgba(30,20,10,0.8)';
+      ctx.fillRect(px - 2, py, 4, 30 + Math.random() * 20);
+      // 树冠
+      const ch = 40 + Math.random() * 30;
+      ctx.fillStyle = 'rgba(15,30,50,0.8)';
+      ctx.beginPath();
+      ctx.moveTo(px, py - ch);
+      ctx.lineTo(px - 18 - Math.random() * 10, py + 5);
+      ctx.lineTo(px + 18 + Math.random() * 10, py + 5);
+      ctx.fill();
+    }
+}
+
+function startGame() {
+  document.getElementById('startOverlay').classList.remove('active');
+  document.getElementById('selectOverlay').classList.add('active');
+  loadSelect();
+}
+
 async function loadSelect() {
   try {
     const r = await fetch('/api/start/candidates');
@@ -587,7 +906,7 @@ async function loadSelect() {
     const STAT_LABELS = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
     grid.innerHTML = data.map(c => `
       <div class="pick-card" onclick="selectChar('${c.name}')">
-        <img class="select-img" src="${fullBodyUrl(c.id)}" alt="${c.name}">
+        <img class="select-img" src="${fullBodyUrl(c.id, c.imageIdx)}" alt="${c.name}">
         <div class="name">${c.name}</div>
         <div class="stat">${c.gender} · ${c.age}岁 · ${c.city||c.region}</div>
         ${Object.entries(STAT_LABELS).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
@@ -598,13 +917,303 @@ async function loadSelect() {
   } catch(e) { console.error(e); }
 }
 
+async function saveGame() {
+  try {
+    const r = await fetch('/api/save', {method:'POST'});
+    const data = await r.json();
+    const banner = document.getElementById('taskResultBanner');
+    banner.textContent = '✓ 存档成功';
+    banner.className = 'task-result task-result-ok';
+    banner.style.display = 'block';
+    setTimeout(() => { banner.style.display = 'none'; }, 2000);
+  } catch(e) { console.error(e); }
+}
+
+async function loadGame() {
+  try {
+    const r = await fetch('/api/load', {method:'POST'});
+    const data = await r.json();
+    if (!data.ok) { alert('没有存档文件'); return; }
+    _lastTournamentChampion = null;
+    document.getElementById('startOverlay').classList.remove('active');
+    document.getElementById('selectOverlay').classList.remove('active');
+    document.getElementById('gameoverOverlay').classList.remove('active');
+    document.getElementById('eventLog').innerHTML = '';
+    document.getElementById('tickBtn').disabled = false;
+    await fetchWorld();
+  } catch(e) { console.error(e); }
+}
+
+let _charEditData = null;
+
+function showCharMenu() {
+  document.getElementById('startOverlay').classList.remove('active');
+  document.getElementById('charMenuOverlay').classList.add('active');
+  drawStartLandscape('charMenuCanvas');
+}
+
+function closeCharMenu() {
+  document.getElementById('charMenuOverlay').classList.remove('active');
+  document.getElementById('startOverlay').classList.add('active');
+}
+
+async function showCharEditor() {
+  try {
+    const r = await fetch('/api/characters/edit');
+    const data = await r.json();
+    _charEditData = data;
+    renderCharEditor(data);
+    document.getElementById('charEditorOverlay').classList.add('active');
+  } catch(e) { console.error(e); }
+}
+
+function renderCharEditor(data) {
+  const orig = data.original || [];
+  const cur = data.current || [];
+  const grid = document.getElementById('charEditorContent');
+  const STATS = ['l','w','i','p'];
+  const STAT_NAMES = {l:'机敏', w:'武力', i:'魅力', p:'智谋'};
+  grid.innerHTML = `<div style="margin-bottom:0.5rem;color:#888;font-size:0.85rem;">共 ${cur.length} 名武将 · 修改后需点击"保存更改"</div>
+    <div class="char-edit-grid">` +
+    cur.map((c, idx) => {
+      const o = orig[idx] || {};
+      return `<div class="char-edit-card">
+        <div class="ce-name">${c.name} <span class="ce-idx">#${c.id}</span></div>
+        <div class="ce-field"><label>名称</label><input class="ce-wide" id="ce_name_${c.id}" value="${c.name}"></div>
+        <div class="ce-field"><label>性别</label>
+          <select id="ce_gender_${c.id}" style="background:#0f0f23;border:1px solid #555;color:#eee;padding:0.2rem 0.4rem;border-radius:3px;font-size:0.85rem;">
+            <option value="男" ${c.gender==='男'?'selected':''}>男</option>
+            <option value="女" ${c.gender==='女'?'selected':''}>女</option>
+          </select>
+        </div>
+        ${STATS.map(s => `<div class="ce-field"><label>${STAT_NAMES[s]}</label><input id="ce_${s}_${c.id}" type="number" value="${c[s]}" min="1" max="200"></div>`).join('')}
+        <div class="ce-field"><label>年龄</label><input id="ce_age_${c.id}" type="number" value="${c.age}" min="1" max="150"></div>
+        <div class="ce-desc"><textarea id="ce_desc_${c.id}">${c.desc || ''}</textarea></div>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+async function saveCharEdits() {
+  const cur = _charEditData?.current || [];
+  const items = cur.map(c => ({
+    id: c.id,
+    name: document.getElementById(`ce_name_${c.id}`)?.value || c.name,
+    gender: document.getElementById(`ce_gender_${c.id}`)?.value || c.gender,
+    l: parseInt(document.getElementById(`ce_l_${c.id}`)?.value) || c.l,
+    w: parseInt(document.getElementById(`ce_w_${c.id}`)?.value) || c.w,
+    i: parseInt(document.getElementById(`ce_i_${c.id}`)?.value) || c.i,
+    p: parseInt(document.getElementById(`ce_p_${c.id}`)?.value) || c.p,
+    age: parseInt(document.getElementById(`ce_age_${c.id}`)?.value) || c.age,
+    desc: document.getElementById(`ce_desc_${c.id}`)?.value || c.desc,
+  }));
+  try {
+    const r = await fetch('/api/characters/save', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(items)});
+    const result = await r.json();
+    if (result.ok) {
+      alert('保存成功！');
+      closeCharEditor();
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function resetCharEdits() {
+  if (!confirm('确定重置所有武将数值为初始值？')) return;
+  try {
+    const r = await fetch('/api/characters/reset', {method:'POST'});
+    await r.json();
+    // Re-fetch and re-render
+    const r2 = await fetch('/api/characters/edit');
+    const data = await r2.json();
+    _charEditData = data;
+    renderCharEditor(data);
+    alert('已重置为初始数值');
+  } catch(e) { console.error(e); }
+}
+
+function closeCharEditor() {
+  document.getElementById('charEditorOverlay').classList.remove('active');
+}
+
+// ---- 自建武将 ----
+let _ccEditId = null;
+let _ccSelectedIdx = 1;
+
+function showCharCreator(editData) {
+  document.getElementById('charMenuOverlay').classList.remove('active');
+  document.getElementById('charCreateOverlay').classList.add('active');
+  drawStartLandscape('charCreateCanvas');
+  _ccEditId = null;
+  _ccSelectedIdx = 1;
+  document.getElementById('ccName').value = '';
+  document.getElementById('ccGender').value = '男';
+  document.getElementById('ccL').value = 50;
+  document.getElementById('ccW').value = 50;
+  document.getElementById('ccI').value = 50;
+  document.getElementById('ccP').value = 50;
+  document.getElementById('ccAge').value = 20;
+  document.getElementById('ccDesc').value = '';
+  document.getElementById('ccSaveBtn').textContent = '创建武将';
+  renderCCImageGrid();
+  if (editData) {
+    _ccEditId = editData.id;
+    document.getElementById('ccName').value = editData.name;
+    document.getElementById('ccGender').value = editData.gender;
+    document.getElementById('ccL').value = editData.l;
+    document.getElementById('ccW').value = editData.w;
+    document.getElementById('ccI').value = editData.i;
+    document.getElementById('ccP').value = editData.p;
+    document.getElementById('ccAge').value = editData.age;
+    document.getElementById('ccDesc').value = editData.desc || '';
+    _ccSelectedIdx = editData.imageIdx || 1;
+    document.getElementById('ccSaveBtn').textContent = '保存修改';
+    selectCCImage(_ccSelectedIdx);
+  } else {
+    selectCCImage(1);
+  }
+}
+
+function closeCharCreator() {
+  document.getElementById('charCreateOverlay').classList.remove('active');
+  document.getElementById('charMenuOverlay').classList.add('active');
+}
+
+function renderCCImageGrid() {
+  const grid = document.getElementById('ccImageGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const img = document.createElement('img');
+    img.className = 'img-select-item';
+    img.src = '/api/images/new_portrait/' + i + '.webp';
+    img.onclick = function() { selectCCImage(i); };
+    grid.appendChild(img);
+  }
+}
+
+function selectCCImage(idx) {
+  _ccSelectedIdx = idx;
+  document.querySelectorAll('.img-select-item').forEach(function(el, i) {
+    el.classList.toggle('selected', i + 1 === idx);
+  });
+  document.getElementById('ccPortraitPreview').src = '/api/images/new_portrait/' + idx + '.webp';
+  document.getElementById('ccBodyPreview').src = '/api/images/new_full_body/' + idx + '.webp';
+}
+
+async function saveCustomChar() {
+  const name = document.getElementById('ccName').value.trim();
+  if (!name) { alert('请输入角色名称'); return; }
+  const data = {
+    name: name,
+    gender: document.getElementById('ccGender').value,
+    l: parseInt(document.getElementById('ccL').value) || 50,
+    w: parseInt(document.getElementById('ccW').value) || 50,
+    i: parseInt(document.getElementById('ccI').value) || 50,
+    p: parseInt(document.getElementById('ccP').value) || 50,
+    age: parseInt(document.getElementById('ccAge').value) || 20,
+    desc: document.getElementById('ccDesc').value || '',
+    imageIdx: _ccSelectedIdx || 1,
+  };
+  try {
+    var r;
+    if (_ccEditId !== null) {
+      data.id = _ccEditId;
+      r = await fetch('/api/characters/custom/update', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+    } else {
+      r = await fetch('/api/characters/custom/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+    }
+    const result = await r.json();
+    if (result.ok) {
+      alert(_ccEditId !== null ? '保存成功！' : '创建成功！');
+      closeCharCreator();
+    } else {
+      alert('操作失败：' + (result.error || '未知错误'));
+    }
+  } catch(e) { console.error(e); alert('网络错误'); }
+}
+
+async function showCustomCharEditor() {
+  try {
+    const r = await fetch('/api/characters/custom');
+    const data = await r.json();
+    document.getElementById('charMenuOverlay').classList.remove('active');
+    document.getElementById('customCharEditOverlay').classList.add('active');
+    drawStartLandscape('customCharEditCanvas');
+    renderCustomCharList(data.chars || []);
+  } catch(e) { console.error(e); }
+}
+
+function closeCustomCharEditor() {
+  document.getElementById('customCharEditOverlay').classList.remove('active');
+  document.getElementById('charMenuOverlay').classList.add('active');
+}
+
+function renderCustomCharList(chars) {
+  const container = document.getElementById('customCharList');
+  if (!chars.length) {
+    container.innerHTML = '<div style="text-align:center;color:#888;padding:2rem;">暂无自建武将</div>';
+    return;
+  }
+  container.innerHTML = chars.map(function(c) {
+    return '<div class="custom-char-item">' +
+      '<img class="cci-img" src="/api/images/new_portrait/' + (c.imageIdx || 1) + '.webp" alt="">' +
+      '<div class="cci-info">' +
+        '<div class="cci-name">' + c.name + '</div>' +
+        '<div class="cci-stats">机敏:' + c.l + ' 武力:' + c.w + ' 魅力:' + c.i + ' 智谋:' + c.p + ' · 年龄:' + c.age + '</div>' +
+      '</div>' +
+      '<div class="cci-actions">' +
+        '<button onclick="editCustomChar(' + c.id + ')" style="background:#0f3460;">编辑</button>' +
+        '<button onclick="deleteCustomChar(' + c.id + ')" style="background:#c73650;">删除</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function editCustomChar(id) {
+  try {
+    const r = await fetch('/api/characters/custom');
+    const data = await r.json();
+    const ch = (data.chars || []).find(function(c) { return c.id === id; });
+    if (ch) {
+      document.getElementById('customCharEditOverlay').classList.remove('active');
+      showCharCreator(ch);
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function deleteCustomChar(id) {
+  if (!confirm('确定删除此武将？')) return;
+  try {
+    const r = await fetch('/api/characters/custom/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id: id})});
+    const result = await r.json();
+    if (result.ok) {
+      const r2 = await fetch('/api/characters/custom');
+      const data = await r2.json();
+      renderCustomCharList(data.chars || []);
+    }
+  } catch(e) { console.error(e); }
+}
+
 async function newGame() {
+  _lastTournamentChampion = null;
   try {
     await fetch('/api/new_game', {method:'POST'});
     document.getElementById('gameoverOverlay').classList.remove('active');
-    document.getElementById('selectOverlay').classList.add('active');
+    document.getElementById('selectOverlay').classList.remove('active');
     document.getElementById('eventLog').innerHTML = '';
-    await loadSelect();
+    document.getElementById('startOverlay').classList.add('active');
+    drawStartLandscape();
+  } catch(e) { console.error(e); }
+}
+
+async function confirmRestart() {
+  if (!confirm('确定要重新开始游戏吗？当前进度将丢失。')) return;
+  try {
+    await fetch('/api/new_game', {method:'POST'});
+    document.getElementById('gameoverOverlay').classList.remove('active');
+    document.getElementById('selectOverlay').classList.remove('active');
+    document.getElementById('eventLog').innerHTML = '';
+    document.getElementById('tickBtn').disabled = true;
+    document.getElementById('startOverlay').classList.add('active');
+    drawStartLandscape();
   } catch(e) { console.error(e); }
 }
 
@@ -997,11 +1606,47 @@ function closeTournament() {
   document.getElementById('tournamentOverlay').classList.remove('active');
 }
 
-function portraitUrl(id) { return '/api/images/portrait/' + encodeURIComponent('01 ('+(id+1)+').webp'); }
-function fullBodyUrl(id) { return '/api/images/full-body/' + encodeURIComponent('01 ('+(id+1)+').webp'); }
+function showHuashanResult() {
+  const d = window._lastData;
+  if (!d || !d.huashan_result) return;
+  const t = d.huashan_result;
+  let html = '';
+  if (t.rounds && t.rounds.length > 0) {
+    html += `<div style="margin-top:0.5rem;">`;
+    for (const rnd of t.rounds) {
+      html += `<div class="tournament-ko"><h3>${rnd.round}</h3>`;
+      for (const m of (rnd.matches||[])) {
+        html += `<div class="tournament-match">☠ ${m.a} vs ${m.b} → ${m.winner}胜，败者身亡</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+  if (t.champion) {
+    html += `<div class="tournament-champion"><div class="name">🗡️ ${t.champion}</div><div style="color:#a0a0c0;margin-top:0.3rem;">华山论剑天下第一 · 武力+20 · 众生臣服</div></div>`;
+  }
+  document.getElementById('huashanContent').innerHTML = html;
+  document.getElementById('huashanOverlay').classList.add('active');
+}
 
-function showFullBody(id) {
-  document.getElementById('fullbodyImg').src = fullBodyUrl(id);
+function portraitUrl(id, imageIdx) {
+  if (imageIdx) return '/api/images/new_portrait/' + imageIdx + '.webp';
+  return '/api/images/portrait/' + encodeURIComponent('01 ('+(id+1)+').webp');
+}
+function fullBodyUrl(id, imageIdx) {
+  if (imageIdx) return '/api/images/new_full_body/' + imageIdx + '.webp';
+  return '/api/images/full-body/' + encodeURIComponent('01 ('+(id+1)+').webp');
+}
+
+function showFullBody(id, imageIdx) {
+  if (!imageIdx) {
+    const _d = window._lastData;
+    if (_d && _d.characters) {
+      const _ch = _d.characters.find(function(c) { return c.id === id; });
+      if (_ch) imageIdx = _ch.imageIdx;
+    }
+  }
+  document.getElementById('fullbodyImg').src = fullBodyUrl(id, imageIdx);
   document.getElementById('fullbodyOverlay').classList.add('active');
 }
 
@@ -1147,9 +1792,10 @@ function drawBattleCanvas(data) {
     ctx.fillStyle = '#fff';
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
+    const garrison = info && info.garrison !== undefined ? info.garrison : 0;
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
     ctx.shadowBlur = 3;
-    ctx.fillText(city, x, y - radius - 6);
+    ctx.fillText(garrison ? `${city} 兵${garrison}` : city, x, y - radius - 6);
     ctx.shadowBlur = 0;
 
     if (controllerChar) {
@@ -1182,7 +1828,7 @@ function showCityPeople(city) {
       const statusText = alive ? '存活' : '已故';
       const statusColor = alive ? '#4caf50' : '#f44336';
       html += `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.5rem;border-bottom:1px solid #1a1a3e;font-size:0.85rem;">
-        <img src="${portraitUrl(c.id)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">
+        <img src="${portraitUrl(c.id, c.imageIdx)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">
         <div style="flex:1;">
           <div><span style="color:${nameColor};font-weight:bold;">${c.name}</span> <span style="color:#888;font-size:0.75rem;">${c.gender} · ${c.age}岁</span></div>
           <div style="color:#888;font-size:0.75rem;">机敏${c.l} 武力${c.w} 魅力${c.i} 智谋${c.p}</div>
@@ -1252,7 +1898,7 @@ function showBattleReport(eventId) {
   document.getElementById('battleReportOverlay').classList.add('active');
 }
 
-loadSelect();
+drawStartLandscape();
 </script>
 </body>
 </html>

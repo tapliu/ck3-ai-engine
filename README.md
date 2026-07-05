@@ -1,6 +1,6 @@
-# 浪子江湖 · 侠行四海
+# 浪子江湖 · 侠行四海 v1.0.0
 
-AI 驱动的武侠江湖模拟&策略游戏。35 位角色出自小说《浪子江湖》，具备战斗、经济、城池经营与扩张等系统。
+AI 驱动的武侠江湖模拟&策略游戏。35 位角色（+ 自定义武将）出自小说《浪子江湖》，具备战斗、经济、城池经营与扩张等系统。
 
 ## 快速开始
 
@@ -11,7 +11,7 @@ uvicorn app.main:app --reload
 
 浏览器打开 `http://localhost:8000`
 
-> 头像和全身像 PNG 图片放在 `data/Images/portrait/` 和 `data/Images/full-body/` 目录下，自动挂载到 `/api/images/`。
+> 图片自动挂载到 `/api/images/`，支持 WebP 格式快速加载。
 
 ## 游戏玩法
 
@@ -41,6 +41,7 @@ uvicorn app.main:app --reload
 16. **托管模式** — 自动执行每回合
 17. **玩家阵亡** — 攻城战中死亡触发游戏结束结算画面
 18. **AI 防御同盟** — 城主人之间好感度 > 30 的 AI 自动结盟，盟友被攻击时派遣 40% 兵力驰援
+19. **自建武将** — 在主菜单「编辑武将」中创建/编辑自定义角色，自由分配属性（1–200），从 10 套头像/全身像中选择形象，创建后自动加入游戏世界
 
 ## 战斗系统
 
@@ -178,7 +179,7 @@ uvicorn app.main:app --reload
 
 ```
 ├── app/
-│   ├── main.py              # FastAPI 入口 + 所有 API 路由
+│   ├── main.py              # FastAPI 入口 + 所有 API 路由（含自定义武将 CRUD）
 │   ├── core/
 │   │   ├── world.py         # 世界状态 + 事件 + 任务 + 移动 + 武道会 + 扩张 + 衰减 + 称号
 │   │   ├── engine.py        # 游戏主循环（含 AI 扩张循环）
@@ -186,7 +187,7 @@ uvicorn app.main:app --reload
 │   │   ├── economy.py       # 经济系统（开发/人口/驻军/征兵/征服）
 │   │   └── event_bus.py     # 事件总线
 │   ├── models/
-│   │   ├── character.py     # 角色模型（含 troops/morale/training/controlled_cities）
+│   │   ├── character.py     # 角色模型（含 imageIdx 支持自定义武将头像）
 │   │   └── region.py        # 地区/城市/连接/地形/城市数据（CityState 类）
 │   ├── ai/
 │   │   ├── agent.py         # AI 智能体
@@ -198,13 +199,16 @@ uvicorn app.main:app --reload
 │       └── event_api.py     # 事件 API
 ├── data/
 │   ├── chars.json           # 角色数据（35人）
+│   ├── custom_chars.json    # 自建武将数据
 │   ├── treasures.json       # 宝物库（20件）
 │   ├── map.png              # 江山舆图地图图片
 │   └── Images/
-│       ├── portrait/        # 角色头像（35张 PNG）
-│       └── full-body/       # 角色全身像（35张 PNG）
+│       ├── portrait/        # 角色头像（35张 WebP）
+│       ├── full-body/       # 角色全身像（35张 WebP）
+│       ├── new_portrait/    # 自建武将头像（10张 WebP）
+│       └── new_full-body/   # 自建武将全身像（10张 WebP）
 ├── frontend/
-│   └── index.html           # 前端界面（Canvas 地图/战报/卡片徽章/重置流程/托管）
+│   └── index.html           # 前端界面（Canvas 地图/战报/自建武将/开始画面）
 ├── .opencode/
 │   └── skills/game-ai/
 │       └── SKILL.md         # 开发指南
@@ -232,7 +236,16 @@ uvicorn app.main:app --reload
 | GET | `/api/tournament` | 获取武道会对阵图及结果 |
 | GET | `/api/move/pending` | 获取待选移动路线 |
 | POST | `/api/move` | 执行移动 `{"dest":"洛阳"}` |
-| GET | `/api/data/map.png` | 江山舆图地图图片 |
+| GET | `/api/data/map.webp` | 江山舆图地图图片（WebP） |
+| GET | `/api/characters/edit` | 获取所有武将当前数值（编辑模式） |
+| POST | `/api/characters/save` | 保存武将编辑 `[{id,name,gender,l,w,i,p,age,desc}]` |
+| POST | `/api/characters/reset` | 重置所有武将为初始值 |
+| GET | `/api/characters/custom` | 获取自建武将列表 |
+| POST | `/api/characters/custom/create` | 创建自建武将 |
+| POST | `/api/characters/custom/update` | 更新自建武将 |
+| POST | `/api/characters/custom/delete` | 删除自建武将 |
+| POST | `/api/save` | 存档（pickle 序列化） |
+| POST | `/api/load` | 读档 |
 
 ## 环境变量
 

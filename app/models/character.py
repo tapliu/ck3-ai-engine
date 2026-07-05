@@ -5,7 +5,7 @@ from app.models.region import CITIES
 REGIONS = ["中原","江南","塞北","西域","东海"]
 
 class Character:
-    def __init__(self, cid, name, gender, l, w, i, p, desc="", age=20):
+    def __init__(self, cid, name, gender, l, w, i, p, desc="", age=20, imageIdx=None, custom_id=None):
         self.id = cid
         self.name = name
         self.gender = gender
@@ -18,6 +18,8 @@ class Character:
         self.bonus_i = 0
         self.bonus_p = 0
         self.age = age
+        self.imageIdx = imageIdx
+        self.custom_id = custom_id
 
         self.alive = True
         self.region = random.choice(REGIONS)
@@ -119,4 +121,5 @@ class Character:
             "init_w": self._init_w,
             "init_i": self._init_i,
             "init_p": self._init_p,
+            "imageIdx": self.imageIdx,
         }

@@ -97,6 +97,7 @@ class World:
         self.task_next_id = 0
         self.pending_decay = None
         self.tournament = None
+        self.huashan_result = None
         self.game_over = False
         self.history = []
         self.titles_awarded = set()
@@ -115,6 +116,14 @@ class World:
     def _init_chars_and_cities(self):
         for d in DATA:
             self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""), d.get("age", 20))
+        # Load custom characters
+        import json
+        custom_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "custom_chars.json")
+        if os.path.isfile(custom_path):
+            with open(custom_path, "r", encoding="utf-8") as f:
+                custom_data = json.load(f)
+            for d in custom_data:
+                self.create(d["gender"], d["name"], d["l"], d["w"], d["i"], d["p"], d.get("desc", ""), d.get("age", 20), d.get("imageIdx"), d.get("id"))
         # 均衡分配城市
         chars_by_region = defaultdict(list)
         for c in self.characters.values():
@@ -139,8 +148,8 @@ class World:
         self._init_state()
         self._init_chars_and_cities()
 
-    def create(self, gender, name, l, w, i, p, desc="", age=20):
-        c = Character(self.next_id, name, gender, l, w, i, p, desc, age)
+    def create(self, gender, name, l, w, i, p, desc="", age=20, imageIdx=None, custom_id=None):
+        c = Character(self.next_id, name, gender, l, w, i, p, desc, age, imageIdx, custom_id)
         self.characters[self.next_id] = c
 
         for k in self.characters:
@@ -262,6 +271,8 @@ class World:
             "settlement": self.settlement() if self.game_over else None,
             "cities": cities_info,
             "pending_move": self.pending_move,
+            "tournament": self.tournament,
+            "huashan_result": self.huashan_result,
         }
 
     def set_player(self, name):
@@ -1199,6 +1210,7 @@ class World:
             self.game_over = True
             return
         self._emit({"type": "wuxia", "desc": "第100回合！华山论剑开幕！群雄逐鹿，决出天下第一！"})
+        all_rounds = []
         round_num = 1
         while True:
             alive_chars = self.alive()
@@ -1214,10 +1226,13 @@ class World:
                 bye = alive_chars[-1]
                 advanced.append(bye)
                 self._emit({"type": "wuxia", "desc": f"华山论剑第{round_num}轮：{bye.name}轮空晋级"})
+            match_data = []
             for a, b in pairs:
                 winner = self._fight_to_death(a, b)
                 advanced.append(winner)
+                match_data.append({"a": a.name, "b": b.name, "winner": winner.name})
                 self._emit({"type": "combat", "desc": f"华山论剑第{round_num}轮：{a.name} vs {b.name}，{winner.name}胜出，败者身亡"})
+            all_rounds.append({"round": f"第{round_num}轮", "matches": match_data})
             round_num += 1
         champion = self.alive()
         if champion:
@@ -1230,6 +1245,7 @@ class World:
                     self.rel[c.id][ch.id] = max(-100, self.rel[c.id].get(ch.id, 0) - 10)
                     self.rel[ch.id][c.id] = max(-100, self.rel[ch.id].get(c.id, 0) - 10)
             self._emit({"type": "title", "desc": f"华山论剑最终胜者：{c.name}！获得称号「华山论剑天下第一」，武力+20！"})
+            self.huashan_result = {"rounds": all_rounds, "champion": c.name}
         self.game_over = True
 
 

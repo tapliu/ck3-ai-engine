@@ -9,3 +9,7 @@ build/
 *.db
 test_import.py
 test_*.py
+data/Images/new_portrait/*.png
+data/Images/new_full_body/*.png
+.DS_Store
+data/save.dat
