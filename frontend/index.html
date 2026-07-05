@@ -1033,7 +1033,8 @@ let _mapBgImg = null;
 (function preloadMapBg() {
   const img = new Image();
   img.onload = () => { _mapBgImg = img; };
-  img.src = '/api/data/map.png';
+  const t = Date.now();
+  img.src = '/api/data/map.png?t=' + t;
 })();
 
 function drawBattleCanvas(data) {
@@ -1058,7 +1059,8 @@ function drawBattleCanvas(data) {
         _mapBgImg = img;
         drawBattleCanvas(data);
       };
-      img.src = '/api/data/map.png';
+      const t = Date.now();
+  img.src = '/api/data/map.png?t=' + t;
     }
   }
 
