@@ -500,6 +500,60 @@ class World:
         label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[stat]
         return {"type": "stat", "value": penalty, "desc": f"{label}{penalty}"}
 
+    # ---- NPC 任务自动执行 ----
+
+    def npc_task(self, npc):
+        pool = NON_CHAR_TASKS + CHAR_TASKS
+        if random.random() < 0.3:
+            pool += DEADLY_TASKS
+        t = random.choice(pool)
+        stat_val = getattr(npc, t["stat"])
+        base = min(95, max(5, 50 + (stat_val - t["diff"]) * 0.5))
+        focus = min(95, max(5, 50 + (stat_val - t["diff"]) * 0.75))
+        scheme = min(95, max(5, base + int(npc.p * 0.1)))
+        round_n = getattr(self, "engine", None) and self.engine.round or 0
+        modes = [("normal", base, 0), ("scheme", scheme, 3), ("focus", focus, 3)]
+        best = max(modes, key=lambda m: m[1])
+        mode, chance, cd_rounds = best
+        if mode == "scheme" and npc.scheme_cooldown_round > round_n:
+            mode, chance = "normal", base
+        elif mode == "focus" and npc.focus_cooldown_round > round_n:
+            mode, chance = "normal", base
+        roll = random.randint(1, 100)
+        success = roll <= chance
+        if mode == "scheme":
+            npc.scheme_cooldown_round = round_n + 3
+        elif mode == "focus":
+            npc.focus_cooldown_round = round_n + 3
+        desc_parts = [f"{npc.name}执行「{t['name']}」"]
+        if mode != "normal":
+            desc_parts.append({"scheme":"（运用智谋）", "focus":"（全力施展）"}[mode])
+        desc_parts.append("，")
+        if success:
+            reward = random.choice(["bonus_l","bonus_w","bonus_i","bonus_p"])
+            boost = random.randint(3, 5) if t["tag"] == "deadly" else random.randint(1, 3)
+            setattr(npc, reward, getattr(npc, reward) + boost)
+            npc.xia_yi += random.randint(2, 5)
+            label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[reward]
+            desc_parts.append(f"成功！{label}+{boost}，侠义值+{npc.xia_yi}")
+            self._emit({"type": "task_success", "desc": "".join(desc_parts)})
+        else:
+            penalty = random.choice(["bonus_l","bonus_w","bonus_i","bonus_p"])
+            val = -random.randint(1, 2)
+            setattr(npc, penalty, getattr(npc, penalty) + val)
+            label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[penalty]
+            desc_parts.append(f"失败！{label}{val}")
+            self._emit({"type": "task_fail", "desc": "".join(desc_parts)})
+
+    # ---- 年龄增长 ----
+
+    def age_all(self):
+        round_n = getattr(self, "engine", None) and self.engine.round or 0
+        if round_n > 0 and round_n % 10 == 0:
+            for c in self.alive():
+                c.age += 1
+            self._emit({"type": "wuxia", "desc": "时光飞逝，所有江湖侠客年长一岁"})
+
     # ---- 战斗（不和引起） ----
 
     def _group_by_city(self):

@@ -40,10 +40,15 @@ class Engine:
         self.world.zhudi_move()
         self.world.check_movement()
         self.world.generate_tasks()
+        # NPC 自动执行任务
+        for c in self.world.alive_except_player():
+            if random.random() < 0.5:
+                self.world.npc_task(c)
         self.world.combat_event()
         self.world.cooperation_event()
         self.world.do_tick_events()
         self.world.check_decay()
+        self.world.age_all()
         self.world.maybe_start_tournament()
         self.world.huashan_battle()
         self.world._check_titles()
