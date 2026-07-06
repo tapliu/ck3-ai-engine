@@ -623,10 +623,13 @@ class World:
                     self.rel[self.player_char.id][target.id] += change
                     self.rel[target.id][self.player_char.id] += change
                     self.player_char.xia_yi += xia_yi_gain
-                    desc_parts.append(f"成功！与{target.name}好感度+{change}，侠义值+{xia_yi_gain}")
+                    gold_reward = random.randint(30, 80)
+                    self.player_char.gold += gold_reward
+                    target.gold = getattr(target, 'gold', 0) + gold_reward
+                    desc_parts.append(f"成功！与{target.name}好感度+{change}，侠义值+{xia_yi_gain}，各得{gold_reward}金")
                     self._emit({"type": "task_success", "desc": "".join(desc_parts)})
                     self._check_titles()
-                    return {"success": True, "desc": "".join(desc_parts), "rel_change": change, "xia_yi": xia_yi_gain}
+                    return {"success": True, "desc": "".join(desc_parts), "rel_change": change, "xia_yi": xia_yi_gain, "gold": gold_reward}
             is_deadly = task["type"] == "deadly"
             if is_deadly:
                 self.titles_awarded.add("deadly_survive")
@@ -734,7 +737,7 @@ class World:
         boost = random.randint(3, 5) if deadly else random.randint(1, 3)
         setattr(self.player_char, stat, getattr(self.player_char, stat) + boost)
         label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[stat]
-        gold_reward = random.randint(20, 50) if deadly else random.randint(5, 20)
+        gold_reward = random.randint(80, 150) if deadly else random.randint(30, 80)
         self.player_char.gold += gold_reward
         return {"type": "stat", "stat": stat, "value": boost, "desc": f"{label}+{boost}", "gold": gold_reward}
 
@@ -759,6 +762,24 @@ class World:
             else:
                 self._emit({"type": "task_fail", "desc": f"{npc.name}招募士兵失败"})
             return
+
+        # 合作任务（概率触发，同城好感度>10的NPC之间）
+        if random.random() < 0.3:
+            pool = [c for c in self.alive_except_player() if c.id != npc.id and c.city == npc.city and self.rel[npc.id].get(c.id, 0) > 10]
+            if pool:
+                partner = random.choice(pool)
+                gold_reward = random.randint(20, 50)
+                npc.gold = getattr(npc, 'gold', 0) + gold_reward
+                partner.gold = getattr(partner, 'gold', 0) + gold_reward
+                change = random.randint(15, 30)
+                self.rel[npc.id][partner.id] += change
+                self.rel[partner.id][npc.id] += change
+                npc.xia_yi += random.randint(2, 4)
+                reward = random.choice(["bonus_l", "bonus_w", "bonus_i", "bonus_p"])
+                boost = random.randint(1, 2)
+                setattr(npc, reward, getattr(npc, reward) + boost)
+                self._emit({"type": "task_success", "desc": f"{npc.name}与{partner.name}合作互助，{reward}+{boost}，各得{gold_reward}金，好感度+{change}"})
+                return
 
         pool = NON_CHAR_TASKS + CHAR_TASKS
         if random.random() < 0.3:
