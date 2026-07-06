@@ -1513,7 +1513,9 @@ function renderTurnBattle(bt) {
     }).join('') : '';
 
   const pSkill = bt.p_skill ? `· 技「${bt.p_skill.name}」` : '';
+  const pCd = bt.p_skill_cooldown > 0 ? ` <span style="color:#888;font-size:0.7rem;">冷却${bt.p_skill_cooldown}</span>` : '';
   const eSkill = bt.e_skill ? `· 技「${bt.e_skill.name}」` : '';
+  const eCd = bt.e_skill_cooldown > 0 ? ` <span style="color:#888;font-size:0.7rem;">冷却${bt.e_skill_cooldown}</span>` : '';
   const pTacticStr = bt.p_tactic ? `<span class="tbat-tactic-tag">${bt.p_tactic}</span>` : '';
   const eTacticStr = bt.e_tactic ? `<span class="tbat-tactic-tag">${bt.e_tactic}</span>` : '';
 
@@ -1522,14 +1524,14 @@ function renderTurnBattle(bt) {
     <div style="text-align:center;font-size:1rem;font-weight:bold;color:#e94560;margin-bottom:0.5rem;">${title}</div>
     <div class="tbat-container">
       <div class="tbat-side ${bt.active ? '' : (bt.winner === bt.p_name ? 'tbat-win' : 'tbat-lose')}">
-        <div class="tbat-name">${bt.p_name} ${pSkill}</div>
+        <div class="tbat-name">${bt.p_name} ${pSkill}${pCd}</div>
         <div class="tbat-sub">${pStatusStr} ${pTacticStr}</div>
         <div class="tbat-stat">攻击 ${bt.p_attack} · 防御 ${bt.p_defense}</div>
         <div class="tbat-hp-bar"><div class="tbat-hp-fill" style="width:${(bt.p_hp/bt.p_max_hp*100)}%;background:#4caf50;"></div><span class="tbat-hp-text">${bt.p_hp}/${bt.p_max_hp}</span></div>
       </div>
       <div class="tbat-vs">VS</div>
       <div class="tbat-side ${bt.active ? '' : (bt.winner === bt.e_name ? 'tbat-win' : 'tbat-lose')}">
-        <div class="tbat-name">${bt.e_name} ${eSkill}</div>
+        <div class="tbat-name">${bt.e_name} ${eSkill}${eCd}</div>
         <div class="tbat-sub">${eStatusStr} ${eTacticStr}</div>
         <div class="tbat-stat">攻击 ${bt.e_attack} · 防御 ${bt.e_defense}</div>
         <div class="tbat-hp-bar"><div class="tbat-hp-fill" style="width:${(bt.e_hp/bt.e_max_hp*100)}%;background:#f44336;"></div><span class="tbat-hp-text">${bt.e_hp}/${bt.e_max_hp}</span></div>

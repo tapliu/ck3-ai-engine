@@ -52,6 +52,8 @@ class TurnBattle:
 
         self.p_status = {}
         self.e_status = {}
+        self.p_skill_cooldown = 0
+        self.e_skill_cooldown = 0
 
         self.round = 0
         self.active = True
@@ -61,6 +63,8 @@ class TurnBattle:
         self._retreated = False
         self.garrison_pending = False
         self._p_troops_before_garrison = 0
+        self._p_pre_troops = player.troops
+        self._e_pre_troops = enemy.troops
 
     @property
     def p_attack(self):
@@ -126,6 +130,8 @@ class TurnBattle:
             "p_troops": self._p_troops_before_garrison or int(self.p_hp),
             "tactic_list": TACTIC_NAMES,
             "is_defense": self.is_defense,
+            "p_skill_cooldown": self.p_skill_cooldown,
+            "e_skill_cooldown": self.e_skill_cooldown,
         }
 
     def process_action(self, player_action):
@@ -134,6 +140,10 @@ class TurnBattle:
 
         self._tick_status(self.p_status)
         self._tick_status(self.e_status)
+        if self.p_skill_cooldown > 0:
+            self.p_skill_cooldown -= 1
+        if self.e_skill_cooldown > 0:
+            self.e_skill_cooldown -= 1
 
         # Save pre-round HP for garrison calculation
         pre_p_hp = int(self.p_hp)
@@ -150,6 +160,9 @@ class TurnBattle:
         else:
             if player_action == "attack":
                 dmg = self._calc_damage(self.p_attack, self.e_defense, self.e_hp)
+                if e_defending:
+                    dmg = int(dmg * 0.5)
+                dmg = max(1, dmg)
                 self.e_hp = max(0, self.e_hp - dmg)
                 p_log_lines.append(f"{self.player.name}攻击，造成 {dmg} 点伤害")
             elif player_action == "defend":
@@ -158,9 +171,12 @@ class TurnBattle:
             elif player_action == "skill":
                 if "silence" in self.p_status and self.p_status["silence"] > 0:
                     p_log_lines.append(f"{self.player.name}被沉默，无法使用技能！")
+                elif self.p_skill_cooldown > 0:
+                    p_log_lines.append(f"{self.player.name}技能冷却中（剩{self.p_skill_cooldown}回合）")
                 else:
                     skill_lines = self._use_skill(self.player, self.enemy, self.p_status, self.e_status, is_player=True)
                     p_log_lines.extend(skill_lines)
+                    self.p_skill_cooldown = 2
 
         e_log_lines = []
         if "stun" in self.e_status and self.e_status["stun"] > 0:
@@ -179,12 +195,33 @@ class TurnBattle:
             elif e_action == "skill":
                 if "silence" in self.e_status and self.e_status["silence"] > 0:
                     e_log_lines.append(f"{self.enemy.name}被沉默，无法使用技能！")
+                elif self.e_skill_cooldown > 0:
+                    e_log_lines.append(f"{self.enemy.name}技能冷却中（剩{self.e_skill_cooldown}回合）")
                 else:
                     skill_lines = self._use_skill(self.enemy, self.player, self.e_status, self.p_status, is_player=False)
                     e_log_lines.extend(skill_lines)
+                    self.e_skill_cooldown = 2
 
         round_log.extend(p_log_lines)
         round_log.extend(e_log_lines)
+
+        if e_action == "retreat":
+            self.active = False
+            self.winner = self.player
+            round_log.append(f"{self.enemy.name}撤退了")
+            self.logs.extend(round_log)
+            if self.is_defense:
+                self.player.morale = min(100, self.player.morale + self._morale_change(15))
+                self.enemy.morale = max(0, self.enemy.morale - 15)
+                self._finalize()
+            else:
+                if self._p_troops_before_garrison <= 0:
+                    self._p_troops_before_garrison = max(1, pre_p_hp)
+                self.garrison_pending = True
+                self.player.morale = min(100, self.player.morale + self._morale_change(15))
+                self.enemy.morale = max(0, self.enemy.morale - 15)
+                self.logs.extend(round_log)
+            return self.to_dict()
 
         if player_action == "retreat":
             self.active = False
@@ -238,7 +275,7 @@ class TurnBattle:
         if skill["type"] == "damage":
             target_hp = self.e_hp if is_player else self.p_hp
             ratio = max(0.3, skill_power * 2 / max(1, target.l * 1.2))
-            base_pct = 0.1 * ratio
+            base_pct = 0.15 * ratio
             dmg = max(1, int(target_hp * base_pct * random.uniform(1.0, 1.5)))
             target_hp_attr = "p_hp" if is_player else "e_hp"
             setattr(self, target_hp_attr, max(0, getattr(self, target_hp_attr) - dmg))
@@ -269,6 +306,8 @@ class TurnBattle:
                 del status[k]
 
     def _ai_decision(self):
+        if self.e_hp < 500 and random.random() < 0.4:
+            return "retreat"
         r = random.random()
         if r < 0.55:
             return "attack"
@@ -414,3 +453,17 @@ class TurnBattle:
                     "desc": f"{p.name}与{e.name}两败俱伤！",
                     "battle_result": {"result": "draw", "logs": self.logs},
                 })
+
+        # 战后恢复：损失兵力恢复10%-30%，消耗金钱
+        for ch, pre, final in [(p, self._p_pre_troops, p.troops), (e, self._e_pre_troops, e.troops)]:
+            lost = max(0, pre - final)
+            if lost <= 0:
+                continue
+            gold = getattr(ch, 'gold', 0)
+            rate = min(0.3, 0.1 + gold / 5000)
+            recovered = int(lost * rate)
+            cost = int(recovered * 1.5)
+            if gold >= cost and recovered > 0:
+                ch.gold = gold - cost
+                ch.troops += recovered
+                self.logs.append(f"{ch.name}战后恢复{recovered}兵力，消耗{cost}金")
