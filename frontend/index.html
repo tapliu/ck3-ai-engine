@@ -212,6 +212,8 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .pick-card .name { font-size:1.1rem; font-weight:bold; color:#e94560; }
 .pick-card .stat { font-size:0.85rem; color:#a0a0c0; margin:0.2rem 0; }
 .pick-card .desc { font-size:0.8rem; color:#666; margin-top:0.5rem; }
+.pick-card-custom { border-color:#ffd700; background:#1a1a2e; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.pick-card-custom:hover { border-color:#e94560; }
 
 /* 武将编辑 */
 .char-edit-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:0.8rem; max-height:60vh; overflow-y:auto; padding:0.5rem; }
@@ -953,16 +955,51 @@ async function loadSelect() {
     const data = await r.json();
     const grid = document.getElementById('selectGrid');
     const STAT_LABELS = {l:'机敏', w:'武力', p:'智谋', i:'魅力'};
-    grid.innerHTML = data.map(c => `
-      <div class="pick-card" onclick="selectChar('${c.name}')">
+    grid.innerHTML = data.map(c => {
+      const sk = c.skill || {};
+      const skillLabel = sk.name ? `技「${sk.name}」: ${sk.desc||''}` : '';
+      return `<div class="pick-card" onclick="selectChar('${c.name}')">
         <img class="select-img" src="${fullBodyUrl(c.id, c.imageIdx)}" alt="${c.name}">
         <div class="name">${c.name}</div>
         <div class="stat">${c.gender} · ${c.age}岁 · ${c.city||c.region}</div>
         ${Object.entries(STAT_LABELS).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
-        <div class="stat">评分: ${c.score}</div>
+        <div class="stat">评分: ${c.score} · ${skillLabel}</div>
         <div class="desc">${c.desc||''}</div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
+    // 自建武将选项
+    grid.innerHTML += `<div class="pick-card pick-card-custom" onclick="showCustomSelect()">
+      <div style="font-size:3rem;color:#ffd700;text-align:center;padding:1rem 0;">✏</div>
+      <div class="name" style="text-align:center;">自建武将</div>
+      <div class="stat" style="text-align:center;color:#888;">选择你所创建的角色</div>
+    </div>`;
+  } catch(e) { console.error(e); }
+}
+
+async function showCustomSelect() {
+  try {
+    const r = await fetch('/api/characters/custom');
+    const data = await r.json();
+    const chars = data.chars || [];
+    if (!chars.length) {
+      alert('暂无自建武将，请先创建');
+      return;
+    }
+    const grid = document.getElementById('selectGrid');
+    const STAT_LABELS = {l:'机敏', w:'武力', p:'智谋', i:'魅力'};
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:0.5rem;color:#aaa;">—— 选择自建武将 ——</div>' +
+      chars.map(c => {
+        const score = (c.l*0.25 + c.w*0.35 + c.i*0.2 + c.p*0.2).toFixed(2);
+        return `<div class="pick-card" onclick="selectChar('${c.name}')">
+          <img class="select-img" src="${fullBodyUrl(c.id, c.imageIdx||1)}" alt="${c.name}">
+          <div class="name">${c.name}</div>
+          <div class="stat">${c.gender} · ${c.age}岁</div>
+          ${Object.entries(STAT_LABELS).map(([k,v]) => `<div class="stat">${v}: ${c[k]}</div>`).join('')}
+          <div class="stat">评分: ${score} · 技能随机</div>
+          <div class="desc">${c.desc||''}</div>
+        </div>`;
+      }).join('') +
+      '<div style="grid-column:1/-1;text-align:center;margin-top:0.5rem;"><button onclick="loadSelect()" style="background:#333;border:1px solid #666;padding:0.4rem 1.5rem;border-radius:6px;cursor:pointer;">返回</button></div>';
   } catch(e) { console.error(e); }
 }
 

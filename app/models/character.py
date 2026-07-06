@@ -9,10 +9,19 @@ SKILL_TEMPLATES = [
     {"type": "damage", "name": "穿心箭", "desc": "一箭穿心，精准打击"},
     {"type": "damage", "name": "雷霆击", "desc": "引雷入体，雷霆万钧"},
     {"type": "damage", "name": "剑气纵横", "desc": "剑气纵横，所向披靡"},
+    {"type": "damage", "name": "破天锤", "desc": "一锤破天，势不可挡"},
+    {"type": "damage", "name": "寒冰掌", "desc": "寒气逼人，冰封经脉"},
+    {"type": "damage", "name": "断浪刀", "desc": "一刀断浪，气吞山河"},
+    {"type": "damage", "name": "碎星拳", "desc": "拳碎星辰，威力无穷"},
+    {"type": "damage", "name": "追风剑", "desc": "剑出如风，瞬息而至"},
     {"type": "silence", "name": "封喉诀", "desc": "封住对手经脉，2回合无法施技"},
     {"type": "silence", "name": "哑穴点", "desc": "点中哑穴，沉默对手"},
+    {"type": "silence", "name": "金针封脉", "desc": "金针刺穴，封住内力"},
+    {"type": "silence", "name": "闭气诀", "desc": "以内力封住对手气门"},
     {"type": "stun", "name": "定身术", "desc": "内力禁锢，1回合无法行动"},
     {"type": "stun", "name": "迷魂咒", "desc": "迷惑心智，令对手原地不动"},
+    {"type": "stun", "name": "天罗网", "desc": "天罗地网，插翅难逃"},
+    {"type": "stun", "name": "点穴手", "desc": "快如闪电，点中要穴"},
 ]
 
 def random_skill():
