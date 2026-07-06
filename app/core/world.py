@@ -185,9 +185,11 @@ class World:
     def apprentice_candidates(self):
         if not self.player_char or self.triggers["apprentice"]:
             return []
+        p = self.player_char
         pool = [c for c in self.alive_except_player()
-                if c.age > self.player_char.age and not c.master
-                and self.rel[self.player_char.id].get(c.id, 0) >= 60]
+                if c.age > p.age and not c.master
+                and c.name != p.spouse and c.name not in p.sworn_brothers
+                and self.rel[p.id].get(c.id, 0) >= 60]
         if len(pool) < 3:
             return []
         random.shuffle(pool)
@@ -196,9 +198,11 @@ class World:
     def marry_candidates(self):
         if not self.player_char or self.triggers["marry"]:
             return []
+        p = self.player_char
         pool = [c for c in self.alive_except_player()
-                if c.gender != self.player_char.gender and not c.spouse
-                and self.rel[self.player_char.id].get(c.id, 0) >= 60]
+                if c.gender != p.gender and not c.spouse
+                and c.name != p.master and c.name not in p.sworn_brothers
+                and self.rel[p.id].get(c.id, 0) >= 60]
         if len(pool) < 3:
             return []
         random.shuffle(pool)
@@ -207,8 +211,10 @@ class World:
     def sworn_candidates(self):
         if not self.player_char or self.triggers["sworn"]:
             return []
+        p = self.player_char
         pool = [c for c in self.alive_except_player()
-                if self.rel[self.player_char.id].get(c.id, 0) >= 60]
+                if c.name != p.spouse and c.name != p.master and c.name not in p.sworn_brothers
+                and self.rel[p.id].get(c.id, 0) >= 60]
         if len(pool) < 3:
             return []
         random.shuffle(pool)
