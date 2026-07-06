@@ -563,7 +563,7 @@ class World:
                 candidates = []
                 for neighbor in self.city_connections.get(current_city, []):
                     cs = self.city_states.get(neighbor)
-                    if cs and cs.controller is not None and cs.controller != self.player_char.id:
+                    if cs and (cs.controller is None or cs.controller != self.player_char.id):
                         candidates.append(neighbor)
                 if candidates:
                     target = random.choice(candidates)
@@ -723,8 +723,26 @@ class World:
                 "desc": f"与{defender.name}在{target_city}交战！",
             }
         else:
-            conquer_city(self, self.player_char, target_city, None)
-            return {"success": True, "desc": f"兵不血刃占领{target_city}！"}
+            # 无主城：与城防守军交战
+            class Garrison:
+                pass
+            g = Garrison()
+            g.name = f"{target_city}守军"
+            g.troops = city_state.garrison
+            dev = city_state.development
+            g.w = int(dev * 0.6)
+            g.l = int(dev * 0.5)
+            g.i = 30
+            g.p = 30
+            g.skill = random_skill()
+            g.id = -1
+            bt = TurnBattle(self.player_char, g, self, target_city, task)
+            self.active_battle = bt
+            return {
+                "type": "turn_battle",
+                "battle": bt.to_dict(),
+                "desc": f"攻打无主之城{target_city}，守军应战！",
+            }
 
     def _execute_recruit_task(self, task):
         p = self.player_char
