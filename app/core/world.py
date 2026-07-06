@@ -812,8 +812,10 @@ class World:
             boost = random.randint(3, 5) if t["tag"] == "deadly" else random.randint(1, 3)
             setattr(npc, reward, getattr(npc, reward) + boost)
             npc.xia_yi += random.randint(2, 5)
+            gold_reward = random.randint(80, 150) if t["tag"] == "deadly" else random.randint(20, 50)
+            npc.gold = getattr(npc, 'gold', 0) + gold_reward
             label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[reward]
-            desc_parts.append(f"成功！{label}+{boost}，侠义值+{npc.xia_yi}")
+            desc_parts.append(f"成功！{label}+{boost}，侠义值+{npc.xia_yi}，获得{gold_reward}金")
             self._emit({"type": "task_success", "desc": "".join(desc_parts)})
         else:
             penalty = random.choice(["bonus_l","bonus_w","bonus_i","bonus_p"])
