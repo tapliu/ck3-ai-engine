@@ -275,7 +275,7 @@ class TurnBattle:
         if skill["type"] == "damage":
             target_hp = self.e_hp if is_player else self.p_hp
             ratio = max(0.3, skill_power * 2 / max(1, target.l * 1.2))
-            base_pct = 0.15 * ratio
+            base_pct = 0.25 * ratio
             dmg = max(1, int(target_hp * base_pct * random.uniform(1.0, 1.5)))
             target_hp_attr = "p_hp" if is_player else "e_hp"
             setattr(self, target_hp_attr, max(0, getattr(self, target_hp_attr) - dmg))
