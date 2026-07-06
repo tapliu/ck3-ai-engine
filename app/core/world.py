@@ -611,6 +611,12 @@ class World:
             return {"success": False, "desc": f"谋略需冷却至第{self.player_char.scheme_cooldown_round}回合，当前第{round_n}回合"}
         if mode == "focus" and self.player_char.focus_cooldown_round > round_n:
             return {"success": False, "desc": f"全力施展需冷却至第{self.player_char.focus_cooldown_round}回合，当前第{round_n}回合"}
+        # 无论成功失败，使用谋略/全力即进入冷却
+        if mode == "scheme":
+            self.player_char.scheme_cooldown_round = round_n + 3
+        elif mode == "focus":
+            self.player_char.focus_cooldown_round = round_n + 3
+
         stat_val = getattr(self.player_char, task["stat"])
         # 扩张任务使用战斗系统
         if task["type"] == "expansion":
@@ -631,10 +637,6 @@ class World:
         roll = random.randint(1, 100)
         success = roll <= chance
         self.pending_tasks = []
-        if mode == "scheme":
-            self.player_char.scheme_cooldown_round = round_n + 3
-        elif mode == "focus":
-            self.player_char.focus_cooldown_round = round_n + 3
         desc_parts = [f"{self.player_char.name}执行「{task['name']}」"]
         mode_labels = {"scheme":"（运用智谋辅助）", "focus":"（全力施展）"}
         if mode in mode_labels:
