@@ -548,7 +548,7 @@ async function fetchWorld() {
   } catch(e) { console.error(e); }
 }
 
-let _lastTournamentChampion = null;
+let _lastTournamentRound = 0;
 
 async function tick() {
   const btn = document.getElementById('tickBtn');
@@ -564,8 +564,8 @@ async function tick() {
       return;
     }
     // 自动弹出武道会结果
-    if (d.tournament && d.tournament.active && d.tournament.champion && d.tournament.champion !== _lastTournamentChampion) {
-      _lastTournamentChampion = d.tournament.champion;
+    if (d.tournament && d.tournament.active && d.tournament.champion && d.tournament.round !== _lastTournamentRound) {
+      _lastTournamentRound = d.tournament.round;
       showTournament();
     }
     // 自动弹出华山论剑结果
@@ -1022,7 +1022,7 @@ async function loadGame() {
     const r = await fetch('/api/load', {method:'POST'});
     const data = await r.json();
     if (!data.ok) { alert('没有存档文件'); return; }
-    _lastTournamentChampion = null;
+    _lastTournamentRound = 0;
     document.getElementById('startOverlay').classList.remove('active');
     document.getElementById('selectOverlay').classList.remove('active');
     document.getElementById('gameoverOverlay').classList.remove('active');
@@ -1281,7 +1281,7 @@ async function deleteCustomChar(id) {
 }
 
 async function newGame() {
-  _lastTournamentChampion = null;
+  _lastTournamentRound = 0;
   try {
     await fetch('/api/new_game', {method:'POST'});
     document.getElementById('gameoverOverlay').classList.remove('active');

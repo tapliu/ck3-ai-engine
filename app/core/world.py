@@ -1194,6 +1194,7 @@ class World:
     def maybe_start_tournament(self):
         if not getattr(self, "engine", None) or self.engine.round % 30 != 0:
             return
+        self.tournament = None
         chars = sorted(self.alive(), key=lambda c: c.xia_yi, reverse=True)[:16]
         if len(chars) < 2:
             self._emit({"type": "tournament", "desc": "天下第一武道会参与者不足，取消举办"})
@@ -1238,7 +1239,7 @@ class World:
                 champion = winner
             elif len(sf_pairs) == 1:
                 champion = sf_pairs[0]
-            self.tournament = {"active": True, "groups": group_datas, "knockout": knockout, "champion": champion.name if champion else None}
+            self.tournament = {"active": True, "round": self.engine.round, "groups": group_datas, "knockout": knockout, "champion": champion.name if champion else None}
         else:
             random.shuffle(chars)
             rounds = []
@@ -1251,7 +1252,7 @@ class World:
                 rounds.append(r)
                 current = winners
             champion = current[0] if current else None
-            self.tournament = {"active": True, "groups": [], "knockout": rounds, "champion": champion.name if champion else None}
+            self.tournament = {"active": True, "round": self.engine.round, "groups": [], "knockout": rounds, "champion": champion.name if champion else None}
 
         champion = None
         if self.tournament and self.tournament.get("champion"):
