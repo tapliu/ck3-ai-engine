@@ -737,7 +737,7 @@ class World:
         boost = random.randint(3, 5) if deadly else random.randint(1, 3)
         setattr(self.player_char, stat, getattr(self.player_char, stat) + boost)
         label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[stat]
-        gold_reward = random.randint(80, 150) if deadly else random.randint(30, 80)
+        gold_reward = random.randint(200, 500) if deadly else random.randint(30, 80)
         self.player_char.gold += gold_reward
         return {"type": "stat", "stat": stat, "value": boost, "desc": f"{label}+{boost}", "gold": gold_reward}
 
