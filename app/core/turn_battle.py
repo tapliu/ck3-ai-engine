@@ -38,6 +38,18 @@ class TurnBattle:
         self.e_base_attack = max(1, int(enemy.w * 1.5))
         self.e_base_defense = max(1, int(enemy.l * 1.2))
 
+        # 帝都防御加成：守方为皇帝时攻防翻倍
+        if world and target_city and world.city_states:
+            import app.models.region as region_mod
+            cs = world.city_states.get(target_city)
+            if cs and target_city == region_mod.CAPITAL:
+                if cs.controller == player.id and getattr(player, 'is_emperor', False):
+                    self.p_base_attack *= 2
+                    self.p_base_defense *= 2
+                elif cs.controller == enemy.id and getattr(enemy, 'is_emperor', False):
+                    self.e_base_attack *= 2
+                    self.e_base_defense *= 2
+
         self.p_status = {}
         self.e_status = {}
 

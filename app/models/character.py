@@ -65,6 +65,7 @@ class Character:
         self.gold = 200
 
         self.skill = random_skill()
+        self.is_emperor = False
 
         self._init_l = self.l
         self._init_w = self.w
@@ -77,6 +78,8 @@ class Character:
             self.gold = 200
         if 'skill' not in self.__dict__:
             self.skill = random_skill()
+        if 'is_emperor' not in self.__dict__:
+            self.is_emperor = False
 
     def init_stats(self):
         self._init_l = self.l
@@ -160,4 +163,5 @@ class Character:
             "imageIdx": self.imageIdx,
             "skill": getattr(self, 'skill', random_skill()),
             "gold": getattr(self, 'gold', 200),
+            "is_emperor": getattr(self, 'is_emperor', False),
         }

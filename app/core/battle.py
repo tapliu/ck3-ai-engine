@@ -87,6 +87,13 @@ def sim_battle(attacker, defender, city=None, world=None):
     att_power = calc_army_power(attacker, city_state.terrain_mod if city_state else None)
     def_power = calc_defense_power(defender, city_state) if city else calc_army_power(defender)
 
+    # 帝都防御加成：守方为皇帝时战力翻倍
+    if city and world:
+        import app.models.region as region_mod
+        cs = world.city_states.get(city)
+        if cs and city == region_mod.CAPITAL and cs.controller == defender.id and getattr(defender, 'is_emperor', False):
+            def_power *= 2
+
     terrain = city_state.terrain if city_state else "平原"
 
     # AI选择战术

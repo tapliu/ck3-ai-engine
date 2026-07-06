@@ -143,6 +143,7 @@ class World:
             zd.region = "中原"
             zd.troops = 5000
             zd.controlled_cities = ["应天府"]
+            zd.is_emperor = True
             if "应天府" in self.city_states:
                 self.city_states["应天府"].controller = zd.id
 
@@ -1108,7 +1109,7 @@ class World:
         if round_n != 70:
             return
         zd = self.get("朱棣")
-        if not zd or not zd.alive:
+        if not zd or not zd.alive or not zd.is_emperor:
             return
         old_city = zd.city
         zd.city = "燕京"

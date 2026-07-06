@@ -1,4 +1,5 @@
 import random
+import app.models.region as region_mod
 
 
 def tick_economy(world):
@@ -101,10 +102,12 @@ def try_expand(world, character):
                 continue
             if hasattr(world, 'alliances') and frozenset([character.id, cs.controller]) in world.alliances:
                 continue
-            if character.troops < defender.troops * 1.2:
+            req = 5.0 if target_name == region_mod.CAPITAL else 1.2
+            if character.troops < defender.troops * req:
                 continue
         else:
-            if character.troops < cs.garrison * 2:
+            req = 5.0 if target_name == region_mod.CAPITAL else 2.0
+            if character.troops < cs.garrison * req:
                 continue
         return target_name
 
@@ -131,8 +134,23 @@ def conquer_city(world, character, city_name, battle_result):
     cs.garrison = int(cs.garrison * 0.3)
     character.troops = int(character.troops * 0.8) + int(cs.garrison * 0.5)
 
-    world._emit({
-        "type": "conquest",
-        "desc": f"{character.name}攻占{city_name}！{'击败了' + (world.characters[old_controller].name if old_controller and old_controller in world.characters else '原守军') if old_controller and old_controller != character.id else '占领了这座城池'}",
-        "battle_result": battle_result,
-    })
+    # 改朝换代：攻陷帝都
+    if city_name == region_mod.CAPITAL and old_controller and old_controller != character.id:
+        old_emperor = world.characters.get(old_controller) if old_controller else None
+        if old_emperor:
+            old_emperor.is_emperor = False
+        character.is_emperor = True
+        character.base_l += 10
+        character.base_w += 10
+        character.base_i += 10
+        character.base_p += 10
+        world._emit({
+            "type": "dynasty_change",
+            "desc": f"改朝换代！{character.name}攻陷帝都{city_name}，推翻{old_emperor.name if old_emperor else '旧朝'}，登基成为新皇帝！全属性+10！",
+        })
+    else:
+        world._emit({
+            "type": "conquest",
+            "desc": f"{character.name}攻占{city_name}！{'击败了' + (world.characters[old_controller].name if old_controller and old_controller in world.characters else '原守军') if old_controller and old_controller != character.id else '占领了这座城池'}",
+            "battle_result": battle_result,
+        })
