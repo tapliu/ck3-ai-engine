@@ -439,10 +439,10 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 <!-- 游戏结束 -->
 <!-- 江山舆图 -->
 <div class="overlay" id="cityMapOverlay">
-  <div class="modal" style="max-width:1080px;">
+  <div class="modal" style="max-width:1080px;position:relative;">
+    <button onclick="document.getElementById('cityMapOverlay').classList.remove('active')" style="position:absolute;top:0.5rem;right:0.5rem;z-index:10;background:#e94560;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.85rem;">关闭</button>
     <h2>江山舆图</h2>
     <div id="cityMapContent"></div>
-    <div style="text-align:center;margin-top:1rem;"><button onclick="document.getElementById('cityMapOverlay').classList.remove('active')">关闭</button></div>
   </div>
 </div>
 <!-- 城市人物弹窗 -->

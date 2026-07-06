@@ -71,6 +71,13 @@ class Character:
         self._init_i = self.i
         self._init_p = self.p
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if 'gold' not in self.__dict__:
+            self.gold = 200
+        if 'skill' not in self.__dict__:
+            self.skill = random_skill()
+
     def init_stats(self):
         self._init_l = self.l
         self._init_w = self.w
@@ -151,6 +158,6 @@ class Character:
             "init_i": self._init_i,
             "init_p": self._init_p,
             "imageIdx": self.imageIdx,
-            "skill": self.skill,
-            "gold": self.gold,
+            "skill": getattr(self, 'skill', random_skill()),
+            "gold": getattr(self, 'gold', 200),
         }
