@@ -206,31 +206,37 @@ class TurnBattle:
         round_log.extend(e_log_lines)
 
         if e_action == "retreat":
-            self.active = False
-            self.winner = self.player
-            round_log.append(f"{self.enemy.name}撤退了")
-            self.logs.extend(round_log)
-            if self.is_defense:
-                self.player.morale = min(100, self.player.morale + self._morale_change(15))
-                self.enemy.morale = max(0, self.enemy.morale - 15)
-                self._finalize()
-            else:
-                if self._p_troops_before_garrison <= 0:
-                    self._p_troops_before_garrison = max(1, pre_p_hp)
-                self.garrison_pending = True
-                self.player.morale = min(100, self.player.morale + self._morale_change(15))
-                self.enemy.morale = max(0, self.enemy.morale - 15)
+            if self._retreat_success(self.enemy):
+                self.active = False
+                self.winner = self.player
+                round_log.append(f"{self.enemy.name}成功撤退")
                 self.logs.extend(round_log)
-            return self.to_dict()
+                if self.is_defense:
+                    self.player.morale = min(100, self.player.morale + self._morale_change(10))
+                    self.enemy.morale = max(0, self.enemy.morale - 10)
+                    self._finalize()
+                else:
+                    if self._p_troops_before_garrison <= 0:
+                        self._p_troops_before_garrison = max(1, pre_p_hp)
+                    self.garrison_pending = True
+                    self.player.morale = min(100, self.player.morale + self._morale_change(10))
+                    self.enemy.morale = max(0, self.enemy.morale - 10)
+                    self.logs.extend(round_log)
+                return self.to_dict()
+            else:
+                round_log.append(f"{self.enemy.name}试图撤退但失败！")
 
         if player_action == "retreat":
-            self.active = False
-            self.winner = None
-            self._retreated = True
-            round_log.append(f"{self.player.name}撤退了")
-            self.logs.extend(round_log)
-            self._finalize()
-            return self.to_dict()
+            if self._retreat_success(self.player):
+                self.active = False
+                self.winner = None
+                self._retreated = True
+                round_log.append(f"{self.player.name}成功撤退")
+                self.logs.extend(round_log)
+                self._finalize()
+                return self.to_dict()
+            else:
+                round_log.append(f"{self.player.name}试图撤退但失败！")
 
         if self.p_hp <= 0 or self.e_hp <= 0:
             if self.p_hp <= 0 and self.e_hp <= 0:
@@ -316,6 +322,10 @@ class TurnBattle:
         else:
             return "skill"
 
+    def _retreat_success(self, char):
+        rate = min(50, 30 + int(char.l * 0.13))
+        return random.random() * 100 < rate
+
     def _morale_change(self, base):
         charm = self.player.i
         return base + int(charm * 0.1)
@@ -375,7 +385,7 @@ class TurnBattle:
 
         if getattr(self, '_retreated', False):
             p.troops = max(1, int(self.p_hp * 0.6))
-            p.morale = max(0, p.morale - self._morale_change(15))
+            p.morale = max(0, p.morale - self._morale_change(10))
             e.morale = min(100, e.morale + 10)
             if self.is_defense:
                 from app.core.economy import conquer_city
