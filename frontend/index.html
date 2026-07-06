@@ -1884,8 +1884,17 @@ function showCityMap() {
     const popHtml = pop.length ? `<span class="cpop" onclick="showCityPeople('${city}')" style="cursor:pointer;text-decoration:underline dotted;">${pop.length}人</span>` : `<span class="cpop">${pop.length}人</span>`;
     const dev = info.development !== undefined ? ` 开发${info.development}` : '';
     const gar = info.garrison !== undefined ? ` 驻军${info.garrison}` : '';
-    const ctrl = info.controller ? ` 控制:${data.characters?.find(c=>c.id===info.controller)?.name||info.controller}` : '';
-    return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span style="color:#888;font-size:0.7rem;">${dev}${gar}</span>${ctrl ? '<br><span style="color:#e94560;font-size:0.7rem;">'+ctrl+'</span>' : ''}<br>${popHtml}${connHtml}</div>`;
+    const ctrlId = info.controller;
+    const ctrlChar = ctrlId ? data.characters?.find(c=>c.id===ctrlId) : null;
+    const ctrlName = ctrlChar?.name || ctrlId || '';
+    let ctrlColor = '#888';
+    if (ctrlId) {
+      if (ctrlId === data.player?.id) ctrlColor = '#f44336';
+      else if (ctrlChar?.name === '朱棣') ctrlColor = '#ffd700';
+      else ctrlColor = '#e94560';
+    }
+    const ctrlHtml = ctrlName ? `<br><span style="color:${ctrlColor};font-size:0.7rem;">控制:${ctrlName}</span>` : '';
+    return `<div class="citymap-city"><span class="cname">${city}</span>${badgeHtml}<span style="color:#888;font-size:0.7rem;">${dev}${gar}</span>${ctrlHtml}<br>${popHtml}${connHtml}</div>`;
   };
   let html = '<div style="text-align:center;margin-bottom:1rem;position:relative;">';
   html += '<canvas id="battleCanvas" width="960" height="600" style="max-width:100%;border-radius:8px;border:1px solid #555;background:#0f0f23;display:block;margin:0 auto;"></canvas>';
@@ -1985,6 +1994,20 @@ function drawBattleCanvas(data) {
     });
   }
 
+  // 势力颜色映射
+  const FACTION_COLORS = {
+    player: '#f44336',
+    emperor: '#ffd700',
+  };
+  const NPC_COLORS = [
+    '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3',
+    '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ff9800',
+    '#ff5722', '#795548', '#607d8b', '#00bcd4', '#ff4081',
+  ];
+  const _npcColorMap = {};
+  const playerId = data.player?.id;
+  const emperorId = data.characters?.find(c => c.name === '朱棣')?.id;
+
   // 绘制城池
   Object.entries(CITY_POS).forEach(([city, [x, y]]) => {
     const info = data.cities && data.cities[city];
@@ -1992,8 +2015,22 @@ function drawBattleCanvas(data) {
     const isControlled = controller !== null && controller !== undefined;
     const controllerChar = isControlled && data.characters ? data.characters.find(c => c.id === controller) : null;
 
+    let fillColor = '#777';
+    if (isControlled) {
+      if (controller === playerId) {
+        fillColor = FACTION_COLORS.player;
+      } else if (controller === emperorId) {
+        fillColor = FACTION_COLORS.emperor;
+      } else {
+        if (!_npcColorMap[controller]) {
+          _npcColorMap[controller] = NPC_COLORS[Object.keys(_npcColorMap).length % NPC_COLORS.length];
+        }
+        fillColor = _npcColorMap[controller];
+      }
+    }
+
     const radius = city === '应天府' ? 10 : 8;
-    ctx.fillStyle = isControlled ? (controllerChar && controllerChar.name === data.player?.name ? '#4caf50' : '#e94560') : '#777';
+    ctx.fillStyle = fillColor;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
