@@ -563,7 +563,7 @@ class World:
                 candidates = []
                 for neighbor in self.city_connections.get(current_city, []):
                     cs = self.city_states.get(neighbor)
-                    if cs and (cs.controller is None or cs.controller != self.player_char.id):
+                    if cs and cs.controller is not None and cs.controller != self.player_char.id:
                         candidates.append(neighbor)
                 if candidates:
                     target = random.choice(candidates)
@@ -748,8 +748,8 @@ class World:
                 if cs:
                     pop = cs.population
             pop = max(500, pop)
-            gain = int(cost * pop / 3000)
-            gain = max(50, min(gain, 3000))
+            gain = int(cost * pop / 6000)
+            gain = max(20, min(gain, 1000))
             p.troops += gain
             desc = f"{p.name}花费{cost}金招募了{gain}名士兵"
             self._emit({"type": "task_success", "desc": desc})
