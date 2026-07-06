@@ -348,6 +348,30 @@ class World:
             })
             formed += 1
 
+    TITLE_REWARDS = {
+        "first_task": {"xia_yi": 2, "gold": 10},
+        "xia_yi_50": {"xia_yi": 10, "gold": 30},
+        "xia_yi_100": {"xia_yi": 20, "gold": 50},
+        "stat_120": {"xia_yi": 5, "gold": 30},
+        "all_100": {"xia_yi": 10, "gold": 50},
+        "survive_50": {"xia_yi": 5, "gold": 20},
+        "married": {"xia_yi": 3, "gold": 20},
+        "sworn": {"xia_yi": 3, "gold": 20},
+        "treasure_3": {"xia_yi": 5, "gold": 30},
+        "deadly_survive": {"xia_yi": 10, "gold": 50},
+        "friends_10": {"xia_yi": 8, "gold": 40},
+        "w_150": {"xia_yi": 10, "gold": 50},
+        "all_130": {"xia_yi": 20, "gold": 100},
+    }
+
+    def _grant_title_reward(self, rule_id):
+        reward = self.TITLE_REWARDS.get(rule_id)
+        if not reward or not self.player_char:
+            return
+        p = self.player_char
+        p.xia_yi += reward["xia_yi"]
+        p.gold += reward["gold"]
+
     def _check_titles(self):
         if not self.player_char:
             return
@@ -377,7 +401,8 @@ class World:
                 p.titles.append(rule["name"])
                 if not p.title:
                     p.title = rule["name"]
-                self._emit({"type": "title", "desc": f"{p.name}获得称号「{rule['name']}」——{rule['desc']}"})
+                self._grant_title_reward(rule["id"])
+                self._emit({"type": "title", "desc": f"{p.name}获得称号「{rule['name']}」——{rule['desc']}，侠义值+{self.TITLE_REWARDS.get(rule['id'], {}).get('xia_yi', 0)}，获得{self.TITLE_REWARDS.get(rule['id'], {}).get('gold', 0)}金"})
 
     def _emit(self, evt):
         bus = getattr(self, "engine", None)
@@ -636,7 +661,8 @@ class World:
                 self.player_char.titles.append("不坏之身")
                 if not self.player_char.title:
                     self.player_char.title = "不坏之身"
-                self._emit({"type": "title", "desc": f"{self.player_char.name}从极难任务中生还，获得称号「不坏之身」"})
+                self._grant_title_reward("deadly_survive")
+                self._emit({"type": "title", "desc": f"{self.player_char.name}从极难任务中生还，获得称号「不坏之身」，侠义值+10，获得50金"})
             reward = self._grant_task_reward(deadly=is_deadly)
             xia_yi_gain = random.randint(3, 6) if is_deadly else xia_yi_gain
             self.player_char.xia_yi += xia_yi_gain
@@ -1213,11 +1239,13 @@ class World:
         if champion:
             champion.title = "天下第一人"
             champion.bonus_w += 10
+            champion.xia_yi += 20
+            champion.gold += 100
             for c in self.alive():
                 if c.id != champion.id:
                     self.rel[c.id][champion.id] = max(-100, self.rel[c.id].get(champion.id, 0) - 10)
                     self.rel[champion.id][c.id] = max(-100, self.rel[champion.id].get(c.id, 0) - 10)
-            self._emit({"type": "tournament", "desc": f"天下第一武道会决赛！{champion.name}获得「天下第一人」称号！武力+10，众人对其好感-10"})
+            self._emit({"type": "tournament", "desc": f"天下第一武道会决赛！{champion.name}获得「天下第一人」称号！武力+10，侠义值+20，获100金，众人对其好感-10"})
             self._check_titles()
 
     # ---- 华山论剑（第100回合，全员淘汰赛，决出最后一人） ----
@@ -1266,11 +1294,13 @@ class World:
             c.title = "华山论剑天下第一"
             c.titles.append("华山论剑天下第一")
             c.bonus_w += 20
+            c.xia_yi += 30
+            c.gold += 200
             for ch in self.characters.values():
                 if ch.id != c.id:
                     self.rel[c.id][ch.id] = max(-100, self.rel[c.id].get(ch.id, 0) - 10)
                     self.rel[ch.id][c.id] = max(-100, self.rel[ch.id].get(c.id, 0) - 10)
-            self._emit({"type": "title", "desc": f"华山论剑最终胜者：{c.name}！获得称号「华山论剑天下第一」，武力+20！"})
+            self._emit({"type": "title", "desc": f"华山论剑最终胜者：{c.name}！获得称号「华山论剑天下第一」，武力+20，侠义值+30，获200金！"})
             self.huashan_result = {"rounds": all_rounds, "champion": c.name}
         self.game_over = True
 

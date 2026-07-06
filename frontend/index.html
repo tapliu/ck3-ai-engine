@@ -1285,6 +1285,8 @@ function renderMoveGrid(rush) {
   if (!pm) return;
   const info = window._cities;
   const grid = document.getElementById('moveGrid');
+  const charMap = {};
+  (window._lastData.characters || []).forEach(ch => { charMap[ch.id] = ch.name; });
   _rushMode = rush;
   document.getElementById('moveBackBtn').style.display = rush ? 'inline-block' : 'none';
   const cities = rush ? (pm.two_step_cities || []) : pm.routes;
@@ -1301,11 +1303,13 @@ function renderMoveGrid(rush) {
     if (ci.capital) badges.push('帝都');
     if (ci.regional_center) badges.push('要冲');
     const bHtml = badges.length ? ' <span style="color:#ffd700;">['+badges.join('+')+']</span>' : '';
+    const lordName = ci.controller != null ? charMap[ci.controller] : null;
+    const lordHtml = lordName ? ' <span style="color:#aaa;font-size:0.75rem;">城主:'+lordName+'</span>' : ' <span style="color:#666;font-size:0.75rem;">无主</span>';
     const region = ci.region ? ' · '+ci.region : '';
     const extra = rush ? ' <span style="color:#e94560;font-size:0.7rem;">[2程]</span>' : '';
     return `<div class="move-card" onclick="executeMove('${d}','${action}')">
       <div class="dest">${d}${bHtml}${extra}</div>
-      <div class="rinfo">${region}</div>
+      <div class="rinfo">${region}${lordHtml}</div>
     </div>`;
   }).join('');
 }

@@ -42,6 +42,22 @@ def tick_economy(world):
             if income:
                 c.gold += max(1, income)
 
+    # 税费：向所处地城主缴纳2%总金额
+    if round_n > 0:
+        for c in world.characters.values():
+            if not c.alive or not c.city:
+                continue
+            cs = world.city_states.get(c.city)
+            if not cs or cs.controller is None or cs.controller == c.id:
+                continue
+            lord = world.characters.get(cs.controller)
+            if not lord or not lord.alive:
+                continue
+            tax = max(1, int(c.gold * 0.02))
+            if tax > 0 and c.gold >= tax:
+                c.gold -= tax
+                lord.gold += tax
+
     # 士气自然浮动
     if round_n > 0:
         for c in world.characters.values():
