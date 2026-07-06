@@ -951,13 +951,19 @@ function startGame() {
   loadSelect();
 }
 
+var _cachedSelectHTML = '';
+
+function restoreSelect() {
+  document.getElementById('selectGrid').innerHTML = _cachedSelectHTML || '<div style="grid-column:1/-1;text-align:center;color:#888;">加载中...</div>';
+}
+
 async function loadSelect() {
   try {
     const r = await fetch('/api/start/candidates');
     const data = await r.json();
     const grid = document.getElementById('selectGrid');
     const STAT_LABELS = {l:'机敏', w:'武力', p:'智谋', i:'魅力'};
-    grid.innerHTML = data.map(c => {
+    const cards = data.map(c => {
       const sk = c.skill || {};
       const skillLabel = sk.name ? `技「${sk.name}」: ${sk.desc||''}` : '';
       return `<div class="pick-card" onclick="selectChar('${c.name}')">
@@ -969,12 +975,12 @@ async function loadSelect() {
         <div class="desc">${c.desc||''}</div>
       </div>`;
     }).join('');
-    // 自建武将选项
-    grid.innerHTML += `<div class="pick-card pick-card-custom" onclick="showCustomSelect()">
+    _cachedSelectHTML = cards + `<div class="pick-card pick-card-custom" onclick="showCustomSelect()">
       <div style="font-size:3rem;color:#ffd700;text-align:center;padding:1rem 0;">✏</div>
       <div class="name" style="text-align:center;">自建武将</div>
       <div class="stat" style="text-align:center;color:#888;">选择你所创建的角色</div>
     </div>`;
+    grid.innerHTML = _cachedSelectHTML;
   } catch(e) { console.error(e); }
 }
 
@@ -1001,7 +1007,7 @@ async function showCustomSelect() {
           <div class="desc">${c.desc||''}</div>
         </div>`;
       }).join('') +
-      '<div style="grid-column:1/-1;text-align:center;margin-top:0.5rem;"><button onclick="loadSelect()" style="background:#333;border:1px solid #666;padding:0.4rem 1.5rem;border-radius:6px;cursor:pointer;">返回</button></div>';
+      '<div style="grid-column:1/-1;text-align:center;margin-top:0.5rem;"><button onclick="restoreSelect()" style="background:#333;border:1px solid #666;padding:0.4rem 1.5rem;border-radius:6px;cursor:pointer;">返回</button></div>';
   } catch(e) { console.error(e); }
 }
 
