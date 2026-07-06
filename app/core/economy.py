@@ -29,6 +29,33 @@ def tick_economy(world):
                     c.troops += max(5, recruit)
             c.troops = min(c.troops, 50000)
 
+    # 城池金收入
+    if round_n > 0:
+        for c in world.characters.values():
+            if not c.alive:
+                continue
+            income = 0
+            for city_name in c.controlled_cities:
+                cs = world.city_states.get(city_name)
+                if cs:
+                    income += int(cs.development * 3 + cs.population / 1000)
+            if income:
+                c.gold += max(1, income)
+
+    # 士气自然浮动
+    if round_n > 0:
+        for c in world.characters.values():
+            if not c.alive:
+                continue
+            charm = c.i
+            if c.morale < 30:
+                gain = int(5 + charm * 5 / 100)
+                c.morale = min(30, c.morale + gain)
+            elif c.morale > 30:
+                loss = int(10 - charm * 5 / 100)
+                loss = max(3, loss)
+                c.morale = max(30, c.morale - loss)
+
 
 def try_expand(world, character):
     """AI势力尝试扩张：攻击相邻无主城池或敌对势力城池"""

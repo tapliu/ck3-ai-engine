@@ -135,6 +135,67 @@ def execute_task(body: ExecuteTask):
     return world.execute_task(body.task_id, m)
 
 
+class BattleAction(BaseModel):
+    action: str
+
+
+class GarrisonChoice(BaseModel):
+    garrison: int
+
+
+class TacticChoice(BaseModel):
+    tactic: str
+
+
+@app.post("/api/battle/start_tactic")
+def battle_start_tactic(body: TacticChoice):
+    bt = getattr(world, "active_battle", None)
+    if not bt:
+        return {"error": "没有进行中的战斗"}
+    if bt.p_tactic is not None:
+        return {"error": "已选择过战术"}
+    from app.core.turn_battle import TACTIC_NAMES
+    if body.tactic not in TACTIC_NAMES:
+        return {"error": "无效战术"}
+    bt.set_tactics(body.tactic)
+    return bt.to_dict()
+
+
+@app.post("/api/battle/action")
+def battle_action(body: BattleAction):
+    bt = getattr(world, "active_battle", None)
+    if not bt or not bt.active:
+        return {"error": "没有进行中的战斗"}
+    return bt.process_action(body.action)
+
+
+@app.post("/api/battle/garrison")
+def battle_garrison(body: GarrisonChoice):
+    bt = getattr(world, "active_battle", None)
+    if not bt:
+        return {"error": "没有进行中的战斗"}
+    max_garrison = getattr(bt, '_p_troops_before_garrison', 0)
+    if body.garrison < 0 or body.garrison > max_garrison:
+        return {"error": f"留守兵力需在 0 ~ {max_garrison} 之间"}
+    return bt.set_garrison(body.garrison)
+
+
+@app.post("/api/battle/surrender")
+def battle_surrender():
+    bt = getattr(world, "active_battle", None)
+    if not bt or not bt.active:
+        return {"error": "没有进行中的战斗"}
+    return bt.process_action("retreat")
+
+
+@app.get("/api/battle/state")
+def battle_state():
+    bt = getattr(world, "active_battle", None)
+    if not bt:
+        return {"active": False}
+    return bt.to_dict()
+
+
 # ---- 不进则退 ----
 
 @app.get("/api/decay/pending")

@@ -4,6 +4,7 @@ from collections import defaultdict
 from app.models.character import Character
 from app.models.region import CITIES, ALL_CITIES, CAPITAL, REGIONAL_CENTERS, REGIONAL_CENTER_GATES, CITY_CONNECTIONS, get_city_info, CityState
 from app.core.battle import sim_battle
+from app.core.turn_battle import TurnBattle
 from app.core.economy import try_expand, conquer_city
 
 STAT_FIELDS = ["base_l", "base_w", "base_i", "base_p"]
@@ -104,6 +105,7 @@ class World:
         self.pending_move = None
         self._event_counter = 0
         self.alliances = set()
+        self.active_battle = None
 
         # 城池状态
         from app.models.region import CITY_CONNECTIONS as _CONN
@@ -273,6 +275,7 @@ class World:
             "pending_move": self.pending_move,
             "tournament": self.tournament,
             "huashan_result": self.huashan_result,
+            "active_battle": self.active_battle.to_dict() if getattr(self, 'active_battle', None) else None,
         }
 
     def set_player(self, name):
@@ -680,52 +683,50 @@ class World:
                     "type": "diplomacy",
                     "desc": f"{defender.name}的盟友{'、'.join(helper_names)}率军驰援！"
                 })
-            result = sim_battle(self.player_char, defender, target_city, self)
-            if result["result"] in ("attacker_win", "draw"):
-                defender.troops = max(0, defender.troops - ally_boost)
-            if not self.player_char.alive:
-                self.game_over = True
-                self._emit({
-                    "type": "death",
-                    "desc": f"{self.player_char.name}在攻城战中阵亡！",
-                })
-                return {"success": False, "desc": f"{self.player_char.name}在攻城战中阵亡！", "game_over": True}
-            victory = result["result"] == "attacker_win"
-            if victory:
-                conquer_city(self, self.player_char, target_city, result)
-                self._emit({
-                    "type": "battle",
-                    "desc": f"{self.player_char.name}攻占{target_city}！击败了{defender.name}",
-                    "battle_result": result,
-                })
-                for log in result["logs"][:3]:
-                    self._emit({"type": "battle_log", "desc": log, "battle_result": result})
-                return {"success": True, "desc": f"攻占{target_city}！{result['logs'][-1]}", "battle_result": result}
-            else:
-                self._emit({
-                    "type": "battle",
-                    "desc": f"{self.player_char.name}攻打{target_city}失败（vs {defender.name}）",
-                    "battle_result": result,
-                })
-                return {"success": False, "desc": f"攻打{target_city}失败！{result['logs'][-1]}", "battle_result": result}
+            bt = TurnBattle(self.player_char, defender, self, target_city, task, ally_boost=ally_boost)
+            self.active_battle = bt
+            return {
+                "type": "turn_battle",
+                "battle": bt.to_dict(),
+                "desc": f"与{defender.name}在{target_city}交战！",
+            }
         else:
             conquer_city(self, self.player_char, target_city, None)
             return {"success": True, "desc": f"兵不血刃占领{target_city}！"}
 
     def _execute_recruit_task(self, task):
-        stat_val = getattr(self.player_char, task["stat"])
+        p = self.player_char
+        stat_val = getattr(p, task["stat"])
         chance = min(95, max(5, 50 + (stat_val - task["difficulty"]) * 0.5))
-        success = random.randint(1, 100) <= chance
-        if success:
-            gain = 500 + int((stat_val / 100) * 500)
-            self.player_char.troops += gain
-            desc = f"{self.player_char.name}招募了{gain}名士兵"
-            self._emit({"type": "task_success", "desc": desc})
-            return {"success": True, "desc": desc}
-        else:
-            desc = f"{self.player_char.name}招募士兵失败"
+        cost = 50 + task["difficulty"] * 5
+        if p.gold < cost:
+            desc = f"{p.name}资金不足！需要{cost}金，当前{p.gold}金"
             self._emit({"type": "task_fail", "desc": desc})
             return {"success": False, "desc": desc}
+        success = random.randint(1, 100) <= chance
+        if success:
+            p.gold -= cost
+            pop = 0
+            for city_name in p.controlled_cities:
+                cs = self.city_states.get(city_name)
+                if cs:
+                    pop += cs.population
+            if pop == 0 and p.city:
+                cs = self.city_states.get(p.city)
+                if cs:
+                    pop = cs.population
+            pop = max(500, pop)
+            gain = int(cost * pop / 3000)
+            gain = max(50, min(gain, 3000))
+            p.troops += gain
+            desc = f"{p.name}花费{cost}金招募了{gain}名士兵"
+            self._emit({"type": "task_success", "desc": desc})
+            return {"success": True, "desc": desc, "gold_cost": cost}
+        else:
+            desc = f"{p.name}招募士兵失败（消耗{cost}金）"
+            p.gold -= cost
+            self._emit({"type": "task_fail", "desc": desc})
+            return {"success": False, "desc": desc, "gold_cost": cost}
 
     def _grant_task_reward(self, deadly=False):
         stats = ["bonus_l", "bonus_w", "bonus_i", "bonus_p"]
@@ -733,7 +734,9 @@ class World:
         boost = random.randint(3, 5) if deadly else random.randint(1, 3)
         setattr(self.player_char, stat, getattr(self.player_char, stat) + boost)
         label = {"bonus_l":"机敏","bonus_w":"武力","bonus_i":"魅力","bonus_p":"智谋"}[stat]
-        return {"type": "stat", "stat": stat, "value": boost, "desc": f"{label}+{boost}"}
+        gold_reward = random.randint(20, 50) if deadly else random.randint(5, 20)
+        self.player_char.gold += gold_reward
+        return {"type": "stat", "stat": stat, "value": boost, "desc": f"{label}+{boost}", "gold": gold_reward}
 
     def _apply_task_penalty(self):
         stats = ["bonus_l", "bonus_w", "bonus_i", "bonus_p"]

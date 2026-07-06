@@ -2,6 +2,7 @@ import random
 from app.core.event_bus import EventBus
 from app.core.battle import sim_battle, pick_tactic
 from app.core.economy import tick_economy, try_expand, conquer_city
+from app.core.turn_battle import TurnBattle
 from app.ai.agent import Agent
 from app.ai.llm import LLM
 from app.ai.memory import Memory
@@ -64,6 +65,20 @@ class Engine:
                     if city_state and city_state.controller:
                         defender = self.world.characters.get(city_state.controller)
                     if defender and defender.alive:
+                        if defender.id == self.world.player_char.id:
+                            ally_boost, helper_names = self.world.get_ally_boost(defender, c)
+                            if helper_names:
+                                self.bus.emit({
+                                    "type": "diplomacy",
+                                    "desc": f"{defender.name}的盟友{'、'.join(helper_names)}率军驰援！"
+                                })
+                            bt = TurnBattle(defender, c, self.world, target, ally_boost=ally_boost, is_defense=True)
+                            self.world.active_battle = bt
+                            self.world._emit({
+                                "type": "defense_battle",
+                                "desc": f"{c.name}对你所在的{target}发起进攻！",
+                            })
+                            break
                         ally_boost, helper_names = self.world.get_ally_boost(defender, c)
                         if helper_names:
                             self.bus.emit({
